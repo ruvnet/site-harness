@@ -1,0 +1,37 @@
+{
+  "package": "@ruvnet/site-harness",
+  "version": "0.1.0",
+  "publishedThrough": "ruOS Work Desktop",
+  "verifiedAt": "2026-10-14",
+  "npm": "https://www.npmjs.com/package/@ruvnet/site-harness",
+  "repository": "https://github.com/ruvnet/site-harness",
+  "release": "https://github.com/ruvnet/site-harness/releases/tag/v0.1.0",
+  "sourceCommit": "4e608d994cbbe55b48a93dfcd9c4623c78762abc",
+  "artifact": {
+    "url": "https://github.com/ruvnet/site-harness/releases/download/v0.1.0/ruvnet-site-harness-0.1.0.tgz",
+    "bytes": 282560,
+    "sha256": "7e9aca89bd6df25783ba8966f4a84367736d032af74e5ec2a449e0af8e1af27b",
+    "integrity": "sha512-dLwhzMbI6I7NoOyCwUHkd+xZIJL3riaZ5WeArgwvooAC9L1H/ff4SZs/QwI0lihjchTKq3lgPkOszrLP/fyT5w=="
+  },
+  "verification": {
+    "nodeVersions": [
+      "22.13.0",
+      "24.19.0"
+    ],
+    "tests": {
+      "passed": 54,
+      "failed": 0,
+      "skipped": 0,
+      "perNodeVersion": true
+    },
+    "reportedProductionVulnerabilities": 0,
+    "registryIntegrityMatchesReviewedTarball": true,
+    "anonymousNpx": true,
+    "publicMcpTools": 14,
+    "publicMcpChromiumDiscovery": true,
+    "publicMcpOpenApi": true,
+    "animatedReadmeSvg": true,
+    "ruosExecutorCompletionVerified": true
+  },
+  "scope": "Fixture tests verify local network discovery and read replay. Live Product Hunt, Reddit and LinkedIn account access was not tested."
+}

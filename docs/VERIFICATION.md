@@ -43,3 +43,10 @@ drafts. WebSocket/binary payloads remain unmodeled. Destination and read policie
 are application checks, including DNS preflight; they do not pin browser DNS
 connections or prove every server endpoint is side-effect-free. See the README
 for operational limits and [IMPLEMENTATION.md](IMPLEMENTATION.md) for architecture.
+
+After publication, anonymous registry reads and fresh-cache npx calls succeeded.
+The public npm download matched the reviewed tarball's SHA-256 and integrity.
+The published npx MCP server exposed fourteen tools, discovered a real Chromium
+fixture, exported its OpenAPI draft, and returned the updated sites resource.
+The 54 tests and installed-artifact checks also passed on minimum Node **22.13.0**.
+Publication links and artifact hashes are recorded in [RELEASE.json](RELEASE.json).
