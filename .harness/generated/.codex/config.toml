@@ -1,0 +1,3 @@
+[mcp_servers.site-harness]
+command = "npx"
+args = ["-y", "site-harness@latest", "mcp", "start"]

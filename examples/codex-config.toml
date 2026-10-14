@@ -1,0 +1,7 @@
+# Add this server block to your existing configuration; preserve other entries.
+[mcp_servers.site_harness]
+command = "npx"
+args = ["--yes", "@ruvnet/site-harness@0.1.0", "mcp"]
+env_vars = ["PRODUCTHUNT_TOKEN", "REDDIT_ACCESS_TOKEN", "REDDIT_USER_AGENT", "API_ANYTHING_BROWSER"]
+
+# Optionally set SITE_HARNESS_HOME to an absolute private state directory.

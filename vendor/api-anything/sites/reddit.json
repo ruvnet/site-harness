@@ -1,0 +1,7 @@
+{
+  "name": "reddit",
+  "displayName": "Reddit",
+  "baseUrl": "https://www.reddit.com",
+  "description": "Read operations can be learned from two authorized captures.",
+  "operations": []
+}

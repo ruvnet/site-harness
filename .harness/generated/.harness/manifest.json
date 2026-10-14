@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "generator": "0.4.17",
+  "template": "minimal",
+  "template_version": "0.0.0",
+  "vars": {
+    "name": "site-harness",
+    "description": "Network-layer website reverse engineer for arbitrary registered sites",
+    "host": "codex"
+  },
+  "hosts": [
+    "codex",
+    "claude-code"
+  ],
+  "files": {
+    ".claude/settings.json": "55bd619d8c45920bd96f34a3f0a07285d5044e13d4c23a424fe06a2763d799ad",
+    ".claude-plugin/plugin.json": "ded6499eb1342af479e38e119cd4bc04322e8b68e14626ee7ffb50dafa47f319",
+    "CLAUDE.md": "ed01793e0cdc4afbfb55de38d0285dc2b6249e384a731d95d053c7fde64a882e",
+    "README.md": "4058ca56856307e40482b4241e6891b1b19f447c6d0be263e5c2bdcc54a2c1f8",
+    "__tests__/smoke.test.ts": "936d9544662427a91bb349239a4f65970cab0e089187d1dd2fefe9280e5f5346",
+    "bin/cli.js": "1c70f8c39aca63c0ee401a4bb40af190fbcc186f4f2158b98e9019e0fba52aa9",
+    "package.json": "7e2260083d6bd030131d187b277f013ba7bd529e9bc62143b8da1cde17491a96",
+    "src/init.ts": "4cc37c5be832fe12bb1248cc1d1caf8fa6ecec5313b2982868b8eaf588304e90",
+    "tsconfig.json": "8b4e730a1aa39162ac574455d7a98e1881f5313ca80ffe503b9652dcf0c76b9d",
+    "vitest.config.ts": "e9e94875611ab1cd602c1f6923902c2dab7953a75ac022962973639d1937587a",
+    ".codex/config.toml": "6cb61c73847665272979f69fc10872d1f843ae05f2094704ae16096d1c8365c8",
+    "AGENTS.md": "37590eeed7bf5b238754de87e6d60a0eeeb479081a1992d1e653d8907e3f70d6",
+    "LICENSE": "386bcff34cbebf502dd5adf2641876cb5ea2f6e1955182cdcc06494e087f4941"
+  },
+  "generated_at": "2026-10-14T10:21:32.610Z",
+  "meta": {
+    "surface": "cli"
+  }
+}

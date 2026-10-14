@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "name": "site-harness",
+  "generator": "metaharness@0.4.17",
+  "kernel": "@metaharness/kernel@0.1.0",
+  "mcp": { "mode": "local", "transport": "stdio", "audit": true },
+  "allowedTools": ["register_site", "discover_site", "network_inventory", "export_openapi", "list_sites", "list_operations", "call_operation", "capture_page", "inspect_capture", "learn_operation", "repair_operation", "export_site", "login", "doctor"],
+  "allowedSites": "Any registered HTTPS website and its explicitly registered API/asset hosts",
+  "starterAdapters": ["producthunt", "reddit", "linkedin"],
+  "writesToSites": false,
+  "shellTools": false,
+  "claims": "Exact host-issued capability and site resource per validated invocation",
+  "credentials": "Environment for official APIs; manually created private local browser session",
+  "browserProfileImport": false,
+  "graphql": "AST-validated queries; unknown persisted operations need an explicitly declared read path",
+  "discovery": "Observe page requests, including generic POSTs, with action endpoint and origin guards",
+  "replay": "GET/HEAD and declared POST read paths; no write operations",
+  "localState": { "environmentVariable": "SITE_HARNESS_HOME", "default": "~/.site-harness", "privateFiles": true },
+  "enforcement": ["MetaHarness ToolDispatcher", "Zod argument schemas", "exact HTTPS request allowlists", "browser and HTTP request guards", "secret redaction", "private audit"]
+}

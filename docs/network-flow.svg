@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="340" viewBox="0 0 1040 340" role="img" aria-labelledby="title desc">
+  <title id="title">Site Harness: from browser traffic to reusable APIs</title>
+  <desc id="desc">Animated packets travel from a browser through network capture and schema inference to CLI and MCP operations. Observed requests yield an endpoint inventory and an inferred OpenAPI draft. Read operations can be learned from two examples and replayed.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1220"/><stop offset="1" stop-color="#152439"/></linearGradient>
+    <linearGradient id="line"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#a78bfa"/></linearGradient>
+    <path id="route1" d="M236 166 H282"/>
+    <path id="route2" d="M488 166 H534"/>
+    <path id="route3" d="M740 166 H786"/>
+  </defs>
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .label { fill: #f1f5f9; font-size: 18px; font-weight: 650; }
+    .detail { fill: #cbd5e1; font-size: 13px; }
+    .code { fill: #7dd3fc; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
+    @media (prefers-reduced-motion: reduce) { .packet { visibility: hidden; } }
+  </style>
+  <rect width="1040" height="340" rx="18" fill="url(#bg)"/>
+  <text x="36" y="44" fill="#f8fafc" font-size="23" font-weight="700">Observe the network. Build a callable API.</text>
+  <text x="36" y="69" fill="#94a3b8" font-size="14">A URL → captured evidence → inferred contracts → learned read operations</text>
+
+  <g fill="#111e30" stroke="#334155">
+    <rect x="30" y="102" width="206" height="132" rx="12"/>
+    <rect x="282" y="102" width="206" height="132" rx="12"/>
+    <rect x="534" y="102" width="206" height="132" rx="12"/>
+    <rect x="786" y="102" width="224" height="132" rx="12"/>
+  </g>
+  <g fill="none" stroke="url(#line)" stroke-width="2">
+    <path d="M236 166 H282 M488 166 H534 M740 166 H786"/>
+    <path d="M273 161 l9 5 -9 5 M525 161 l9 5 -9 5 M777 161 l9 5 -9 5"/>
+  </g>
+  <g fill="#38bdf8" class="packet">
+    <circle r="4"><animateMotion dur="2.4s" repeatCount="indefinite" path="M236 166 H282"/></circle>
+    <circle r="4"><animateMotion dur="2.4s" begin="0.8s" repeatCount="indefinite" path="M488 166 H534"/></circle>
+    <circle r="4" fill="#a78bfa"><animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite" path="M740 166 H786"/></circle>
+  </g>
+
+  <text x="48" y="134" class="label">1 · Visit a website</text>
+  <text x="48" y="165" class="code">https://your-site/</text>
+  <text x="48" y="192" class="detail">Chromium page traffic</text>
+  <text x="48" y="212" class="detail">Your local login, if needed</text>
+
+  <text x="300" y="134" class="label">2 · Capture requests</text>
+  <text x="300" y="165" class="code">GET /api/search?q=…</text>
+  <text x="300" y="192" class="detail">HTTP · REST · GraphQL</text>
+  <text x="300" y="212" class="detail">Origins, parameters, auth refs</text>
+
+  <text x="552" y="134" class="label">3 · Infer contracts</text>
+  <text x="552" y="165" class="code">{ items: [{ title: … }] }</text>
+  <text x="552" y="192" class="detail">Endpoint and schema inventory</text>
+  <text x="552" y="212" class="detail">Observed OpenAPI 3.1 draft</text>
+
+  <text x="804" y="134" class="label">4 · Learn and replay</text>
+  <text x="804" y="165" class="code">site-harness call …</text>
+  <text x="804" y="192" class="detail">Two examples → parameter slots</text>
+  <text x="804" y="212" class="detail">npx CLI + stdio MCP</text>
+
+  <rect x="30" y="256" width="980" height="55" rx="10" fill="#0c1928" stroke="#285269"/>
+  <circle cx="52" cy="283" r="5" fill="#34d399"/>
+  <text x="68" y="280" fill="#d1fae5" font-size="13" font-weight="600">MetaHarness dispatch · registered destinations · credential redaction · read replay policy</text>
+  <text x="68" y="300" fill="#94a3b8" font-size="12">Contracts describe observed samples. Each visit reveals the requests that page makes.</text>
+</svg>

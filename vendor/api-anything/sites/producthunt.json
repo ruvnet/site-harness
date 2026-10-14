@@ -1,0 +1,7 @@
+{
+  "name": "producthunt",
+  "displayName": "Product Hunt",
+  "baseUrl": "https://www.producthunt.com",
+  "description": "Read operations can be learned from two authorized captures.",
+  "operations": []
+}

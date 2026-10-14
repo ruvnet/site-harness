@@ -1,0 +1,80 @@
+{
+  "repository": "https://github.com/goodnight000/api-anything",
+  "commit": "1788526eb54ff1f0d8bd7373bd5fdcac143ad7ad",
+  "license": "MIT",
+  "vendoredFiles": [
+    {
+      "path": "LICENSE",
+      "upstreamGitBlob": "5ad64be5f85187317555c2f85f429c7b84131fa7"
+    },
+    {
+      "path": "sites/linkedin.json",
+      "upstreamGitBlob": "2b524ea08100ce37371ad7fb4061a9c7e08fe0c5"
+    },
+    {
+      "path": "src/browser.ts",
+      "upstreamGitBlob": "deb3f63a7cc21048a9b3e41d7c34933ce5787cd4"
+    },
+    {
+      "path": "src/classify.ts",
+      "upstreamGitBlob": "21c4c4215a6d3b73f65a5520c736eb037ec0e671"
+    },
+    {
+      "path": "src/codec.ts",
+      "upstreamGitBlob": "e667b4ca1c99420ccf72669bde6090fe9419ba16"
+    },
+    {
+      "path": "src/execute.ts",
+      "upstreamGitBlob": "b1f1345f0396babae5a2bc85701454c097c2a828"
+    },
+    {
+      "path": "src/extract.ts",
+      "upstreamGitBlob": "39d0a436d8426765693d8d935f6d8dd9407c9ffb"
+    },
+    {
+      "path": "src/heal.ts",
+      "upstreamGitBlob": "cff86656741ca4bfe623449130663c8ea147ed68"
+    },
+    {
+      "path": "src/http.ts",
+      "upstreamGitBlob": "32e50a2e6d3a093d2df305da801ee7c32b7d88fb"
+    },
+    {
+      "path": "src/import.ts",
+      "upstreamGitBlob": "c0d2e9b42d0720b1f4f64ed89ac9015db5ecb2d9"
+    },
+    {
+      "path": "src/learn.ts",
+      "upstreamGitBlob": "bb5035e5d3f59667d4c17c09b841cf141652281a"
+    },
+    {
+      "path": "src/login.ts",
+      "upstreamGitBlob": "039e458a2db75cb7f5d49a6f1a4c85b2d33e21ed"
+    },
+    {
+      "path": "src/secrets.ts",
+      "upstreamGitBlob": "ebbbebd69b70f767b03a126ff06675132c7b334f"
+    },
+    {
+      "path": "src/session.ts",
+      "upstreamGitBlob": "6c334c76de0cc6e2e72eaae4700545357e3cd009"
+    },
+    {
+      "path": "src/spec.ts",
+      "upstreamGitBlob": "ea7a504fb4b3334676e09c6c2442c737c1b8c8e1"
+    },
+    {
+      "path": "src/store.ts",
+      "upstreamGitBlob": "29c129519b6b91ba1eeb2e2906ff254e50b5de16"
+    },
+    {
+      "path": "src/types.ts",
+      "upstreamGitBlob": "aad7d37a3d16b61b57e0a5fb097f74b49f80801e"
+    }
+  ],
+  "modifications": {
+    "src/browser.ts": "Add opt-in request policy for HTTP, navigation, browser captures and WebSocket transport.",
+    "src/login.ts": "Add opt-in desktop browser session import policy; Site Harness disables it.",
+    "src/heal.ts": "Propagate optional capture timeout to the existing bounded browser trigger."
+  }
+}

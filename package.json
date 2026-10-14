@@ -1,0 +1,59 @@
+{
+  "name": "@ruvnet/site-harness",
+  "version": "0.1.0",
+  "description": "MetaHarness network-layer website reverse engineer: discover APIs, infer OpenAPI, learn and replay read operations over CLI and MCP.",
+  "type": "module",
+  "license": "MIT",
+  "author": "ruvnet",
+  "repository": { "type": "git", "url": "https://github.com/ruvnet/site-harness.git" },
+  "homepage": "https://github.com/ruvnet/site-harness#readme",
+  "keywords": ["reverse-engineering", "network", "openapi", "mcp", "metaharness", "browser", "api"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "bin": {
+    "site-harness": "dist/src/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/service.d.ts",
+      "default": "./dist/src/service.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "dist/vendor",
+    "dist/package-info.json",
+    "npm-shrinkwrap.json",
+    ".harness",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "examples",
+    "docs",
+    "vendor/api-anything/UPSTREAM.json",
+    "vendor/api-anything/LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "start": "node dist/src/cli.js",
+    "mcp": "node dist/src/cli.js mcp",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@metaharness/kernel": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "graphql": "16.11.0",
+    "node-html-parser": "9.0.4",
+    "playwright-core": "1.63.0",
+    "tldts": "7.4.16",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx site-harness*)",
+      "mcp__site-harness__*"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  },
+  "mcpServers": {
+    "site-harness": {
+      "command": "npx",
+      "args": ["-y", "site-harness@latest", "mcp", "start"]
+    }
+  }
+}

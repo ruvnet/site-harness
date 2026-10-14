@@ -1,0 +1,24 @@
+{
+  "generator": "metaharness",
+  "version": "0.4.17",
+  "source": "https://github.com/ruvnet/metaharness",
+  "tarball": "https://registry.npmjs.org/metaharness/-/metaharness-0.4.17.tgz",
+  "integrity": "sha512-1FKNb4FQjKGdROX/Jy+P8rjFyCq+kxrfXpKIwIaTqSpepkTsMxr925R72OVE8wUaznMXS0bEOBs116KFgqZHow==",
+  "integrityVerified": true,
+  "method": "published scaffold() API",
+  "options": {
+    "name": "site-harness",
+    "template": "minimal",
+    "host": "codex",
+    "hosts": [
+      "codex",
+      "claude-code"
+    ],
+    "description": "Network-layer website reverse engineer for arbitrary registered sites",
+    "darwin": false,
+    "sessions": false,
+    "fieldMemory": false
+  },
+  "generatedManifest": ".harness/generated/.harness/manifest.json",
+  "adaptation": "Generated baseline retained intact; application CLI, read tools and runtime policy implemented in src. Generated host configs are references, not installed in host accounts."
+}
