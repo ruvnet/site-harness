@@ -1,9 +1,15 @@
 # Hosted management console
 
 The console is a responsive Cloudflare Worker application with D1 persistence.
-Cloudflare Access email sign-in protects `/api/*`; the Worker verifies the signed
-Access JWT audience, issuer and owner email. Public assets contain no workspace
-data. A paired Node desktop agent polls `/agent/*` with its own revocable token.
+The branded `/signup` and `/signin` pages accept a workspace access code. The
+hosted default is `ruvnet`. The Worker checks its SHA-256 hash from the
+`CONSOLE_CODE_HASH` binding and issues an eight-hour `__Host-site_harness` cookie
+with Secure, HttpOnly and SameSite=Strict. D1 stores only session hashes; logout
+revokes them, and changing the code hash invalidates existing sessions. Login is
+limited to eight attempts per address per fifteen-minute window. Same-origin
+checks protect sign-in, sign-out and management mutations. Public assets contain
+no workspace data. Signed Cloudflare Access JWTs are also verified when supplied
+by an optional gateway; the hosted console uses its own code sign-in. A paired Node desktop agent polls `/agent/*` with its own revocable token.
 Website cookies, environment tokens and raw captures remain on that desktop.
 Only redacted results, schemas and metadata are synchronized.
 
@@ -37,8 +43,12 @@ ISO UTC strings. IDs are UUIDs, except target/operation names and capture IDs.
 - `POST /api/agents`: `{name}` -> `{ok,agent:{id,name},token}`. This returns the
   pairing secret once; D1 stores only its hash. The token format is `id.secret`.
 - `POST /api/agents/:id/revoke`: prevents subsequent polling and result updates.
-- `GET /api/login`: authenticated request redirects to `/`. `GET /api/logout`
-  redirects to Cloudflare Access logout. `GET /health`: public liveness only.
+- `POST /auth/login`: `{code}` -> `{ok,user:{email}}` and a secure session cookie.
+  Wrong codes return 401; rate limits return 429 with `Retry-After`.
+- `POST /auth/logout`: revokes the current session and clears the cookie.
+- `GET /api/login`: authenticated requests redirect to `/`; other requests
+  redirect to `/signup`. `GET /api/logout` supports optional legacy Access logout.
+  `GET /health`: public liveness only.
 - `POST /agent/poll`: Bearer pairing token; `{version,activeJobId?,snapshot?}` ->
   `{ok,settings,job:Job|null}`. Updates heartbeat and validated redacted snapshot,
   atomically leases at most one queued job to that agent. Busy heartbeats include
@@ -70,3 +80,16 @@ persistence, signed-owner auth, origin checks, token revocation, lease ownership
 and safe credential handling. The Cloudflare deployment and npx agent are tested
 after publication. Rollback restores the prior Worker build; agent pairing may
 be revoked without removing private browser state.
+
+## Deploying code sign-in
+
+Build the root package, then run `npm ci --ignore-scripts`, `npm run check` and
+`npm test` in `console/`. Apply all migrations in filename order, including
+`0002_sessions.sql`. Set `OWNER_EMAIL` to your workspace owner identity. Store
+the lowercase SHA-256 hex digest of your access code in the Worker secret
+`CONSOLE_CODE_HASH` before enabling sign-in. Deploy `dist/worker.mjs` using
+`wrangler.jsonc` and D1. A Cloudflare Access policy intercepting `/api/*` must
+be removed or adjusted for the application code session to reach the Worker.
+
+The code is checked only by the Worker; the browser bundle has no configured
+code or hash. Desktop pairing and its separate revocable tokens are unchanged.

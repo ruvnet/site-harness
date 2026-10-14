@@ -3,6 +3,10 @@ import { isObject, type Json } from './types';
 export class ApiError extends Error {
   constructor(message: string, readonly signedOut = false, readonly status = 0) { super(message); }
 }
+export async function signOut(): Promise<void> {
+  await request('/auth/logout', { method: 'POST', body: {} });
+  location.replace('/signup');
+}
 export async function request<T>(path: string, options: { method?: string; body?: Json; signal?: AbortSignal } = {}): Promise<T> {
   const response = await fetch(path, {
     credentials: 'same-origin',

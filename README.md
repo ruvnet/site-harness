@@ -213,7 +213,10 @@ and the release evidence. Upstream MIT licenses are retained.
 ## Management console
 
 Open [Site Harness Console](https://site-harness-console.cognitum-consulting-mail.workers.dev)
-on desktop or mobile. Owner email sign-in uses Cloudflare Access. The console
+on desktop or mobile. Use the workspace access code `ruvnet` on the branded
+[sign-in page](https://site-harness-console.cognitum-consulting-mail.workers.dev/signup).
+No email code is needed. Sign-in shares the dashboard design and supports desktop
+and mobile. The console
 includes animated network maps, endpoint and schema inspection, OpenAPI downloads,
 target allowlists, learned operation controls, job history, capture preferences,
 reduced motion, and desktop pairing/revocation.

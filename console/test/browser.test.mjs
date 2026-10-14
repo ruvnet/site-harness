@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Miniflare, createFetchMock } from 'miniflare';
@@ -20,9 +21,11 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
   const fetchMock = createFetchMock();
   fetchMock.disableNetConnect();
   fetchMock.get(issuer).intercept({ path: '/cdn-cgi/access/certs', method: 'GET' }).reply(200, JSON.stringify({ keys: [key] }), { headers: { 'Content-Type': 'application/json' } }).persist();
-  const mf = new Miniflare({ modules: true, scriptPath: resolve('dist/worker.mjs'), compatibilityDate: '2026-07-30', d1Databases: { DB: 'console-browser-test' }, bindings: { ACCESS_TEAM_DOMAIN: issuer, ACCESS_AUD: audience, OWNER_EMAIL: email }, fetchMock });
+  const mf = new Miniflare({ modules: true, scriptPath: resolve('dist/worker.mjs'), compatibilityDate: '2026-07-30', d1Databases: { DB: 'console-browser-test' }, bindings: { ACCESS_TEAM_DOMAIN: issuer, ACCESS_AUD: audience, OWNER_EMAIL: email, CONSOLE_CODE_HASH: createHash('sha256').update('ruvnet').digest('hex') }, fetchMock });
   const db = await mf.getD1Database('DB');
-  for (const sql of (await readFile('migrations/0001_console.sql', 'utf8')).split(';').map(v => v.trim()).filter(Boolean)) await db.prepare(sql).run();
+  for (const file of (await readdir('migrations')).filter(name => name.endsWith('.sql')).sort()) {
+    for (const sql of (await readFile('migrations/' + file, 'utf8')).split(';').map(v => v.trim()).filter(Boolean)) await db.prepare(sql).run();
+  }
   let origin;
   let browser;
   let running;
@@ -32,8 +35,7 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
       const bytes = [];
       for await (const chunk of req) bytes.push(chunk);
       const headers = { ...req.headers };
-      // This fixture models the Access gateway with a real signed test JWT.
-      if (req.url.startsWith('/api/')) headers['Cf-Access-Jwt-Assertion'] = signed;
+      // Browser requests authenticate through the real access-code session.
       const response = await mf.dispatchFetch(origin + req.url, { method: req.method, headers, redirect: 'manual', ...(['GET', 'HEAD'].includes(req.method) ? {} : { body: Buffer.concat(bytes) }) });
       res.writeHead(response.status, Object.fromEntries(response.headers));
       res.end(Buffer.from(await response.arrayBuffer()));
@@ -49,7 +51,7 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
     await new Promise(r => proxy.listen(0, '127.0.0.1', r)); origin = `http://127.0.0.1:${proxy.address().port}`;
     await new Promise(r => fixture.listen(0, '127.0.0.1', r)); const siteUrl = `http://127.0.0.1:${fixture.address().port}`;
     const request = async (path, body) => {
-      const response = await fetch(origin + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body) } : {});
+      const response = await fetch(origin + path, { headers: { 'Cf-Access-Jwt-Assertion': signed, ...(body ? { 'Content-Type': 'application/json', Origin: origin } : {}) }, ...(body ? { method: 'POST', body: JSON.stringify(body) } : {}) });
       const value = await response.json(); assert.ok(response.ok, JSON.stringify(value)); return value;
     };
     const pairing = await request('/api/agents', { name: 'Browser fixture desktop' });
@@ -62,7 +64,18 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
     const desktop = await browser.newContext({ viewport: { width: 1440, height: 1040 } });
     const page = await desktop.newPage(); page.setDefaultTimeout(8000); const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto(origin); await page.getByRole('heading', { name: /Every request/ }).waitFor();
+    await mkdir('artifacts', { recursive: true });
+    await page.goto(origin + '/signup'); await page.getByLabel('Access code', { exact: true }).waitFor();
+    await page.screenshot({ path: 'artifacts/signup-desktop.png', fullPage: true });
+    await page.getByLabel('Access code', { exact: true }).fill('incorrect');
+    await page.getByRole('button', { name: 'Open dashboard', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'incorrect' }).waitFor();
+    await page.getByLabel('Access code', { exact: true }).fill('ruvnet');
+    await page.getByRole('button', { name: 'Open dashboard', exact: true }).click();
+    await page.getByRole('heading', { name: /Every request/ }).waitFor();
+    const session = (await desktop.cookies()).find(cookie => cookie.name === '__Host-site_harness');
+    assert.ok(session?.secure && session.httpOnly && session.sameSite === 'Strict');
+    await page.reload(); await page.getByRole('heading', { name: /Every request/ }).waitFor();
     await page.locator('.sidebar nav').getByRole('link', { name: 'Targets', exact: true }).click();
     await page.getByRole('button', { name: 'Add target', exact: true }).click();
     await page.locator('#target-name').fill('ui-fixture');
@@ -99,7 +112,14 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
 
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
     const phone = await mobile.newPage(); phone.on('pageerror', e => errors.push(e.message));
-    await phone.goto(origin + '#network'); await phone.getByRole('heading', { name: 'Network explorer', exact: true }).waitFor();
+    await phone.goto(origin + '/signup'); await phone.getByLabel('Access code', { exact: true }).waitFor();
+    await phone.screenshot({ path: 'artifacts/signup-mobile.png', fullPage: true });
+    assert.ok(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Mobile access layout must not overflow.');
+    await phone.getByLabel('Access code', { exact: true }).fill('ruvnet');
+    await phone.getByRole('button', { name: 'Open dashboard', exact: true }).click();
+    await phone.getByRole('heading', { name: /Every request/ }).waitFor();
+    await phone.getByRole('navigation', { name: 'Mobile navigation' }).getByRole('link', { name: 'Network', exact: true }).click();
+    await phone.getByRole('heading', { name: 'Network explorer', exact: true }).waitFor();
     await phone.getByRole('navigation', { name: 'Mobile navigation' }).getByRole('link', { name: 'Network', exact: true }).waitFor();
     await phone.locator('.endpoint-row').filter({ hasText: '/api/items' }).waitFor();
     await phone.locator('.endpoint-row').filter({ hasText: '/api/items' }).click();
@@ -109,8 +129,12 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
     await phone.getByRole('navigation', { name: 'Mobile navigation' }).getByRole('link', { name: 'Settings', exact: true }).click();
     await phone.locator('#setting-timeout').waitFor();
     assert.equal(await phone.locator('#setting-timeout').inputValue(), '45');
+    await phone.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await phone.getByLabel('Access code', { exact: true }).waitFor();
+    assert.equal(await phone.evaluate(async () => (await fetch('/api/state')).status), 401);
+    assert.equal(await page.evaluate(async () => (await fetch('/api/state')).status), 200);
     assert.deepEqual(errors, [], 'Browser runtime errors');
-    console.log(JSON.stringify({ desktop: true, mobile: true, realAgent: true, targetManagement: true, chromiumDiscovery: true, networkSchema: true, openApi: true, persistentSettings: true, reducedMotion: true }));
+    console.log(JSON.stringify({ desktop: true, mobile: true, codeLogin: true, wrongCode: true, persistentSession: true, signOut: true, realAgent: true, targetManagement: true, chromiumDiscovery: true, networkSchema: true, openApi: true, persistentSettings: true, reducedMotion: true }));
   } finally {
     controller.abort(); await running?.catch(() => {}); await browser?.close();
     for (const server of [proxy, fixture]) { server.closeAllConnections(); await new Promise(r => server.close(r)); }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Miniflare, createFetchMock } from 'miniflare';
@@ -10,7 +11,7 @@ const origin = 'https://console.example';
 const issuer = 'https://site-harness-test.cloudflareaccess.com';
 const audience = 'site-harness-console-test';
 const owner = 'owner@example.com';
-const env = { ACCESS_TEAM_DOMAIN: issuer, ACCESS_AUD: audience, OWNER_EMAIL: owner };
+const env = { ACCESS_TEAM_DOMAIN: issuer, ACCESS_AUD: audience, OWNER_EMAIL: owner, CONSOLE_CODE_HASH: createHash('sha256').update('ruvnet').digest('hex') };
 let mf, db, privateKey, publicJwk, ownerJwt, worker;
 
 async function token(overrides = {}) {
@@ -21,8 +22,9 @@ async function token(overrides = {}) {
     .setIssuedAt(now).setExpirationTime(overrides.expires ?? now + 300).sign(privateKey);
 }
 
-async function request(path, { method = 'GET', body, jwt = ownerJwt, originHeader = origin, pairing } = {}) {
-  const headers = {};
+async function request(path, { method = 'GET', body, jwt = ownerJwt, originHeader = origin, pairing, cookie, ip = '192.0.2.1' } = {}) {
+  const headers = { 'CF-Connecting-IP': ip };
+  if (cookie) headers.Cookie = cookie;
   if (jwt) headers['Cf-Access-Jwt-Assertion'] = jwt;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (originHeader) headers.Origin = originHeader;
@@ -71,8 +73,10 @@ before(async () => {
   fetchMock.get(issuer).intercept({ path: '/cdn-cgi/access/certs', method: 'GET' }).reply(200, JSON.stringify({ keys: [publicJwk] }), { headers: { 'Content-Type': 'application/json' } }).persist();
   mf = new Miniflare({ modules: true, scriptPath, compatibilityDate: '2026-07-30', d1Databases: { DB: 'site-harness-worker-tests' }, bindings: env, fetchMock });
   db = await mf.getD1Database('DB');
-  const migration = await readFile(new URL('../migrations/0001_console.sql', import.meta.url), 'utf8');
-  for (const statement of migration.split(';').map(value => value.trim()).filter(Boolean)) await db.prepare(statement).run();
+  for (const file of (await readdir(new URL('../migrations/', import.meta.url))).filter(name => name.endsWith('.sql')).sort()) {
+    const migration = await readFile(new URL('../migrations/' + file, import.meta.url), 'utf8');
+    for (const statement of migration.split(';').map(value => value.trim()).filter(Boolean)) await db.prepare(statement).run();
+  }
 }, { timeout: 30_000 });
 after(async () => { await mf?.dispose(); });
 
@@ -93,6 +97,58 @@ test('public assets and liveness reveal no workspace data; owner API requires si
   const logout = await request('/api/logout');
   assert.equal(logout.status, 302);
   assert.equal(logout.response.headers.get('Location'), issuer + '/cdn-cgi/access/logout');
+});
+
+test('workspace code issues a secure hashed session, rotates it and revokes it on logout', async () => {
+  assert.equal((await request('/signup', { jwt: null })).status, 200);
+  assert.equal((await request('/signin', { jwt: null })).status, 200);
+  assert.equal((await request('/api/login', { jwt: null })).response.headers.get('Location'), '/signup');
+  const login = options => request('/auth/login', { method: 'POST', jwt: null, body: { code: 'ruvnet' }, ...options });
+  assert.equal((await login({ originHeader: 'https://attacker.example' })).status, 403);
+  assert.equal((await login({ originHeader: null })).status, 403);
+  const wrong = await login({ body: { code: 'incorrect' } });
+  assert.equal(wrong.status, 401);
+  assert.equal(wrong.response.headers.get('Set-Cookie'), null);
+  assert.equal((await login({ body: { code: 'ruvnet', email: 'other@example.com' } })).status, 400);
+  const accepted = await login();
+  assert.equal(accepted.status, 200, accepted.text);
+  const header = accepted.response.headers.get('Set-Cookie');
+  assert.match(header, /^__Host-site_harness=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; Secure; SameSite=Strict; Max-Age=28800$/);
+  const cookie = header.split(';')[0];
+  const secret = cookie.split('=')[1];
+  assert.equal((await db.prepare('SELECT token_hash FROM console_sessions WHERE token_hash = ?').bind(secret).first()), null);
+  assert.ok(await db.prepare('SELECT token_hash FROM console_sessions WHERE token_hash = ?').bind(createHash('sha256').update(secret).digest('hex')).first());
+  assert.equal((await request('/api/state', { jwt: null, cookie })).status, 200);
+  assert.equal((await request('/api/state', { jwt: null, cookie: cookie.slice(0, -1) + (cookie.endsWith('a') ? 'b' : 'a') })).status, 401);
+  assert.equal((await request('/api/state', { jwt: null, cookie: cookie + '; ' + cookie })).status, 401);
+  const rotated = (await login({ cookie })).response.headers.get('Set-Cookie').split(';')[0];
+  assert.notEqual(rotated, cookie);
+  assert.equal((await request('/api/state', { jwt: null, cookie })).status, 401);
+  assert.equal((await request('/api/state', { jwt: null, cookie: rotated })).status, 200);
+  assert.equal((await request('/auth/logout', { method: 'POST', jwt: null, cookie: rotated, originHeader: null })).status, 403);
+  const logout = await request('/auth/logout', { method: 'POST', jwt: null, cookie: rotated });
+  assert.equal(logout.status, 200);
+  assert.match(logout.response.headers.get('Set-Cookie'), /Max-Age=0/);
+  assert.equal((await request('/api/state', { jwt: null, cookie: rotated })).status, 401);
+});
+
+test('expired and code-rotated sessions fail; login attempts are atomically limited per address', async () => {
+  const login = options => request('/auth/login', { method: 'POST', jwt: null, ip: '192.0.2.2', body: { code: 'ruvnet' }, ...options });
+  const header = (await login()).response.headers.get('Set-Cookie');
+  const cookie = header.split(';')[0];
+  const hash = createHash('sha256').update(cookie.split('=')[1]).digest('hex');
+  await db.prepare('UPDATE console_sessions SET code_hash = ? WHERE token_hash = ?').bind('0'.repeat(64), hash).run();
+  assert.equal((await request('/api/state', { jwt: null, cookie })).status, 401);
+  await db.prepare('UPDATE console_sessions SET code_hash = ?, expires_at = ? WHERE token_hash = ?').bind(env.CONSOLE_CODE_HASH, Date.now() - 1, hash).run();
+  assert.equal((await request('/api/state', { jwt: null, cookie })).status, 401);
+  for (let index = 0; index < 8; index++) assert.equal((await login({ body: { code: 'wrong' } })).status, 401);
+  const blocked = await login();
+  assert.equal(blocked.status, 429);
+  assert.ok(Number(blocked.response.headers.get('Retry-After')) > 0);
+  assert.equal(blocked.response.headers.get('Set-Cookie'), null);
+  assert.equal((await login({ ip: '192.0.2.3' })).status, 200);
+  await db.prepare('UPDATE console_login_attempts SET expires_at = ?').bind(Date.now() - 1).run();
+  assert.equal((await login()).status, 200);
 });
 
 test('Access verification rejects wrong owner, issuer, audience and expiration with real RSA signatures', async () => {

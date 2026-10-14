@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ASSETS } from '../assets.generated.js';
-import { ownerIdentity, hashSecret, sameHash, createSecret, verifyAccessIdentity } from './auth.js';
+import { ownerIdentity, hashSecret, sameHash, createSecret, verifyAccessIdentity, sessionSecret, sessionCookie, SESSION_MS } from './auth.js';
 import { defaultSettings, settingsSchema, newJobSchema, pairingSchema, pollSchema, jobResultSchema, safeSnapshot, safeResult, validateArgs, ValidationError, MAX_RESULT, MAX_SNAPSHOT } from './validation.js';
 import { hasCredentials, sanitizedText } from './sanitize.js';
 import type { Env, AgentRow, JobRow, D1PreparedStatement } from './types.js';
@@ -56,6 +56,42 @@ async function readJson(request: Request, maximum: number): Promise<unknown> {
 async function settings(env: Env): Promise<typeof defaultSettings> {
   const row = await env.DB.prepare('SELECT settings_json FROM settings WHERE id = 1').first<{ settings_json: string }>();
   return row ? settingsSchema.parse(JSON.parse(row.settings_json)) : { ...defaultSettings };
+}
+
+async function authRoutes(request: Request, env: Env, url: URL): Promise<Response> {
+  if (request.method !== 'POST') throw new HttpError(405, 'Use POST.');
+  sameOrigin(request);
+  if (url.pathname === '/auth/logout') {
+    const session = sessionSecret(request);
+    if (session) await env.DB.prepare('DELETE FROM console_sessions WHERE token_hash = ?').bind(await hashSecret(session)).run();
+    const response = json({ ok: true });
+    response.headers.set('Set-Cookie', sessionCookie('', 0));
+    return response;
+  }
+  if (url.pathname !== '/auth/login') throw new HttpError(404, 'Sign-in route not found.');
+  if (!env.CONSOLE_CODE_HASH || !/^[a-f0-9]{64}$/.test(env.CONSOLE_CODE_HASH) || !env.OWNER_EMAIL) throw new HttpError(503, 'Workspace sign-in is not configured.');
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const limiterKey = await hashSecret(`console-login:${request.headers.get('CF-Connecting-IP') ?? 'unknown'}`);
+  const attempt = await env.DB.prepare('INSERT INTO console_login_attempts (limiter_key, attempts, expires_at) VALUES (?, 1, ?) ON CONFLICT(limiter_key) DO UPDATE SET attempts = CASE WHEN expires_at <= ? THEN 1 ELSE attempts + 1 END, expires_at = CASE WHEN expires_at <= ? THEN excluded.expires_at ELSE expires_at END RETURNING attempts, expires_at')
+    .bind(limiterKey, now + windowMs, now, now).first<{ attempts: number; expires_at: number }>();
+  if (!attempt || attempt.attempts > 8) {
+    const response = json({ ok: false, error: 'Too many attempts. Please try again in a few minutes.' }, 429);
+    response.headers.set('Retry-After', String(Math.max(1, Math.ceil(((attempt?.expires_at ?? now + windowMs) - now) / 1000))));
+    return response;
+  }
+  const input = z.object({ code: z.string().min(1).max(256) }).strict().parse(await readJson(request, 4096));
+  if (!sameHash(await hashSecret(input.code), env.CONSOLE_CODE_HASH)) throw new HttpError(401, 'That access code is incorrect. Please try again.');
+  const session = createSecret();
+  const previous = sessionSecret(request);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM console_sessions WHERE expires_at <= ? OR token_hash = ?').bind(now, previous ? await hashSecret(previous) : ''),
+    env.DB.prepare('DELETE FROM console_login_attempts WHERE limiter_key = ? OR expires_at <= ?').bind(limiterKey, now),
+    env.DB.prepare('INSERT INTO console_sessions (token_hash, code_hash, expires_at) VALUES (?, ?, ?)').bind(await hashSecret(session), env.CONSOLE_CODE_HASH, now + SESSION_MS),
+  ]);
+  const response = json({ ok: true, user: { email: env.OWNER_EMAIL } });
+  response.headers.set('Set-Cookie', sessionCookie(session));
+  return response;
 }
 
 function jobView(row: JobRow & { result_available?: number }): Record<string, unknown> {
@@ -202,17 +238,21 @@ export default {
     try {
       const url = new URL(request.url);
       if (url.pathname === '/health' && request.method === 'GET') return json({ ok: true, service: 'site-harness-console' });
+      if (url.pathname.startsWith('/auth/')) return await authRoutes(request, env, url);
       if (url.pathname.startsWith('/api/')) {
         let user: { email: string };
         try { user = await ownerIdentity(request, env); }
-        catch { throw new HttpError(401, 'Sign in with the owner Cloudflare Access account.'); }
+        catch {
+          if (url.pathname === '/api/login' && request.method === 'GET') return redirect('/signup');
+          throw new HttpError(401, 'Sign in with your workspace access code.');
+        }
         return await api(request, env, url, user.email);
       }
       if (url.pathname.startsWith('/agent/')) return await agentRoutes(request, env, url);
       if (!['GET', 'HEAD'].includes(request.method)) throw new HttpError(405, 'Use GET.');
       const path = url.pathname === '/' ? '/index.html' : url.pathname;
       const assets = ASSETS as Record<string, { body: string; contentType: string }>;
-      const asset = assets[path] ?? (['/overview', '/network', '/targets', '/operations', '/settings'].includes(path) ? assets['/index.html'] : undefined);
+      const asset = assets[path] ?? (['/overview', '/network', '/targets', '/operations', '/settings', '/signup', '/signin'].includes(path) ? assets['/index.html'] : undefined);
       if (!asset) throw new HttpError(404, 'Page not found.');
       return new Response(request.method === 'HEAD' ? null : asset.body, { headers: headers(asset.contentType) });
     } catch (error) {

@@ -14,17 +14,20 @@
   },
   "cloudflare": {
     "worker": "site-harness-console",
-    "workerSha256": "ce5daee08cb9bb68af4dc2e968d7bd1a5050e434d0f78b08f1293b2ccdcbee84",
+    "workerSha256": "23f6afac82e6e9686aed3c429993b69bceb821564d2cf7c99b75f631827237c1",
     "d1Database": "13ea1edb-d511-4203-9780-169ef72b67d4",
-    "accessApplication": "5eda62da-8001-4e1d-8f1b-0cd335879895",
-    "managementOwnerEmailOnly": true,
-    "previewUrlsEnabled": false
+    "previewUrlsEnabled": false,
+    "authMode": "workspace-code",
+    "signupPath": "/signup",
+    "sessionHours": 8,
+    "accessEmailGatewayEnabled": false,
+    "workerDeployedAt": "2026-10-14T16:48:45.686029Z"
   },
   "verification": {
     "coreTests": 68,
-    "workerD1Tests": 15,
+    "workerD1Tests": 17,
     "desktopMobileBrowserFlows": 1,
-    "totalTests": 84,
+    "totalTests": 86,
     "failed": 0,
     "skipped": 0,
     "nodeVersions": [
@@ -44,7 +47,10 @@
     "publishedAgentConnected": true,
     "agentReconnectedAfterDesktopWake": true,
     "privatePairingFile": true,
-    "hashOnlyPairingStorage": true
+    "hashOnlyPairingStorage": true,
+    "productionDesktopMobileCodeSignIn": true,
+    "hashOnlySessionStorage": true,
+    "codeSignInNodeVersion": "24.19.0"
   },
   "scope": "Cloudflare serves management, authenticated jobs, redacted metadata/results and schemas. Chromium, API credentials and raw captures remain on the paired desktop. Jobs wait when it sleeps. Live authenticated Product Hunt, Reddit and LinkedIn access was not asserted."
 }

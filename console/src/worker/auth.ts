@@ -20,9 +20,27 @@ export async function verifyAccessIdentity(token: string, env: Pick<Env, 'ACCESS
 }
 
 export async function ownerIdentity(request: Request, env: Env): Promise<{ email: string }> {
+  const session = sessionSecret(request);
+  if (session && env.CONSOLE_CODE_HASH && env.OWNER_EMAIL) {
+    const row = await env.DB.prepare('SELECT code_hash FROM console_sessions WHERE token_hash = ? AND expires_at > ?')
+      .bind(await hashSecret(session), Date.now()).first<{ code_hash: string }>();
+    if (row && sameHash(row.code_hash, env.CONSOLE_CODE_HASH)) return { email: env.OWNER_EMAIL };
+  }
   const token = request.headers.get('Cf-Access-Jwt-Assertion');
-  if (!token || token.length > 16_384) throw new Error('Sign in with Cloudflare Access.');
+  if (!token || token.length > 16_384) throw new Error('Sign in with your workspace access code.');
   return verifyAccessIdentity(token, env);
+}
+
+export const SESSION_COOKIE = '__Host-site_harness';
+export const SESSION_MS = 8 * 60 * 60 * 1000;
+export function sessionSecret(request: Request): string | undefined {
+  const values = (request.headers.get('Cookie') ?? '').split(';').map(value => value.trim()).filter(value => value.startsWith(`${SESSION_COOKIE}=`));
+  if (values.length !== 1) return;
+  const value = values[0].slice(SESSION_COOKIE.length + 1);
+  return /^[A-Za-z0-9_-]{43}$/.test(value) ? value : undefined;
+}
+export function sessionCookie(value: string, maxAge = SESSION_MS / 1000): string {
+  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 }
 
 export async function hashSecret(secret: string): Promise<string> {
