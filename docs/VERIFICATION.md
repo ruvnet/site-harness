@@ -29,3 +29,9 @@ Product Hunt, Reddit or LinkedIn authenticated account access was asserted.
 The network and read-policy limits described in the README still apply.
 
 The previous release evidence is retained under `docs/releases/`.
+
+Post-publication checks verified the exact npm tarball integrity, fresh-cache
+`npx` console/sites/version commands, and the published MCP tools, calls and
+resource. All 68 core tests also passed on minimum Node 22.13.0. The ruOS desktop
+restarted during verification; its GNOME startup hook automatically reconnected
+the agent running the published 0.2.0 package, with its prior capture intact.

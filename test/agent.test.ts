@@ -43,7 +43,7 @@ test('agent pairing configuration requires a private file and an HTTPS public or
     }
     config(home,{consoleUrl:'http://127.0.0.1:3050'});assert.throws(()=>readAgentConfig(path),/HTTPS/);
     assert.equal(readAgentConfig(path,true).consoleUrl,'http://127.0.0.1:3050');
-    config(home,{token:'not-a-token'});assert.throws(()=>readAgentConfig(path),/pairing token/);
+    config(home,{token:'not-a-token'});assert.throws(()=>readAgentConfig(path),/desktop pairing/);
   } finally {rmSync(home,{recursive:true,force:true});}
 });
 

@@ -1,0 +1,50 @@
+{
+  "package": "@ruvnet/site-harness",
+  "version": "0.2.0",
+  "verifiedAt": "2026-10-14",
+  "console": "https://site-harness-console.cognitum-consulting-mail.workers.dev",
+  "repository": "https://github.com/ruvnet/site-harness",
+  "npm": "https://www.npmjs.com/package/@ruvnet/site-harness",
+  "release": "https://github.com/ruvnet/site-harness/releases/tag/v0.2.0",
+  "artifactSourceCommit": "38cd6f4368d92ca0b21fe739b6c34e688ee57b4c",
+  "artifact": {
+    "sha256": "df7177a0d719d47573fa94e0f963d807742cf2cbc9a8d3cca2371f7357c06b77",
+    "integrity": "sha512-F/JfDOTZb0AQdnP1+BcvGhIf9dwTCQmOHnOd/D33XlZbAXieJGjBJYrunyXdZaA0cls9jXy2jT8MSWU6zahU9g==",
+    "bytes": 300729
+  },
+  "cloudflare": {
+    "worker": "site-harness-console",
+    "workerSha256": "ce5daee08cb9bb68af4dc2e968d7bd1a5050e434d0f78b08f1293b2ccdcbee84",
+    "d1Database": "13ea1edb-d511-4203-9780-169ef72b67d4",
+    "accessApplication": "5eda62da-8001-4e1d-8f1b-0cd335879895",
+    "managementOwnerEmailOnly": true,
+    "previewUrlsEnabled": false
+  },
+  "verification": {
+    "coreTests": 68,
+    "workerD1Tests": 15,
+    "desktopMobileBrowserFlows": 1,
+    "totalTests": 84,
+    "failed": 0,
+    "skipped": 0,
+    "nodeVersions": [
+      "22.13.0",
+      "24.19.0"
+    ],
+    "reportedRootVulnerabilities": 0,
+    "reportedConsoleVulnerabilities": 0,
+    "advisoryFeedDate": "2026-10-14",
+    "lockSha256": {
+      "package-lock.json": "e018b32efa3234ca1b6fff7c3f45b5da080c82574e2a3852ac825ef183805819",
+      "console/package-lock.json": "7fd78f1801acaf170f71ab96bdf67c18e9199ffddd4893da5c45d78304303160"
+    },
+    "publishedNpxAndMcp": true,
+    "registryMatchesReviewedTar": true,
+    "liveCloudToDesktopDiscovery": true,
+    "publishedAgentConnected": true,
+    "agentReconnectedAfterDesktopWake": true,
+    "privatePairingFile": true,
+    "hashOnlyPairingStorage": true
+  },
+  "scope": "Cloudflare serves management, authenticated jobs, redacted metadata/results and schemas. Chromium, API credentials and raw captures remain on the paired desktop. Jobs wait when it sleeps. Live authenticated Product Hunt, Reddit and LinkedIn access was not asserted."
+}
