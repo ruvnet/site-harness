@@ -27,6 +27,9 @@ try {
   const doctor = await cli('doctor');
   assert.equal(doctor.ok, true);
   assert.ok(JSON.stringify(doctor.data).includes('serverSpecValid'));
+  const consoleCommand = await run('npx', ['--offline', '--no', 'site-harness', 'console'], options);
+  assert.match(consoleCommand.stdout, /^https:\/\/site-harness-console\..*workers\.dev\s*$/);
+  await assert.rejects(run('npx', ['--offline', '--no', 'site-harness', 'agent', '--config', join(dir, 'missing-private.json')], options), error => error.code === 1 && error.stderr.includes('private 0600 JSON file'));
   const registered = await cli('register', 'arbitrary', 'https://catalog.example', '--api-host', 'api.catalog.example');
   assert.equal(registered.ok, true);
   assert.ok((await cli('sites')).data.some(site => site.site === 'arbitrary'));

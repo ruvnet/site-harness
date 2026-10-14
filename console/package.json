@@ -1,0 +1,30 @@
+{
+  "name": "@ruvnet/site-harness-console",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "jose": "6.2.12",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "esbuild": "0.28.2",
+    "miniflare": "4.20260730.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.4"
+  },
+  "overrides": {
+    "sharp": "0.35.5",
+    "undici": "7.30.0"
+  }
+}

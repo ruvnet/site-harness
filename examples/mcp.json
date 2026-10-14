@@ -2,7 +2,7 @@
   "mcpServers": {
     "site-harness": {
       "command": "npx",
-      "args": ["--yes", "@ruvnet/site-harness@0.1.0", "mcp"]
+      "args": ["--yes", "@ruvnet/site-harness@0.2.0", "mcp"]
     }
   }
 }

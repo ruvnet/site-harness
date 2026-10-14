@@ -2,6 +2,7 @@
 import { SiteHarness } from './service.js';
 import { serveStdio } from './mcp.js';
 import { defaultTargetName } from './targets.js';
+import { runAgent } from './agent.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -28,6 +29,8 @@ Usage:
   site-harness login <site>
   site-harness doctor
   site-harness mcp
+  site-harness agent --config <private-json-file>
+  site-harness console
 
 Targets: any registered website. Product Hunt, Reddit and LinkedIn are starter adapters.
 HTTPS is the default; local/private targets need --allow-private true, HTTP --allow-http true.
@@ -93,7 +96,21 @@ function targetFlags(flags: Record<string, string>) {
 export async function main(argv = process.argv.slice(2)) {
   const [command, site, op, ...rest] = argv;
   if (!command || command === '--help' || command === '-h' || command === 'help') { process.stdout.write(help); return; }
-  if (command === '--version' || command === 'version') { process.stdout.write('0.1.0\n'); return; }
+  if (command === '--version' || command === 'version') { process.stdout.write('0.2.0\n'); return; }
+  if (command === 'console') {
+    if (argv.length !== 1) throw new Error('console accepts no arguments.');
+    process.stdout.write('https://site-harness-console.cognitum-consulting-mail.workers.dev\n');
+    return;
+  }
+  if (command === 'agent') {
+    if (argv.length !== 3 || argv[1] !== '--config' || !argv[2]) throw new Error('Use agent --config <private-json-file>.');
+    const controller = new AbortController();
+    const stop = () => controller.abort();
+    process.once('SIGINT', stop); process.once('SIGTERM', stop);
+    try { await runAgent({ configPath: resolve(argv[2]), signal: controller.signal }); }
+    finally { process.off('SIGINT', stop); process.off('SIGTERM', stop); }
+    return;
+  }
   const service = new SiteHarness();
   if (command === 'mcp') {
     if (argv.length !== 1) throw new Error('mcp accepts no arguments.');

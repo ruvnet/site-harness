@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { resolve, join } from "node:path";
+import { existsSync, readFileSync, readdirSync, lstatSync, realpathSync } from 'node:fs';
 import {
   browserAvailable, browserChoice, browserRequestAllowed, closeBrowser,
   login as browserLogin, setBrowserRequestPolicy as installBrowserPolicy,
@@ -12,8 +13,9 @@ import { rankCandidates } from "../vendor/api-anything/src/learn.js";
 import { cookieNames, setBrowserSessionImportAllowed } from "../vendor/api-anything/src/login.js";
 import { credentialsOf } from "../vendor/api-anything/src/secrets.js";
 import { home, loadSession, loggedIn, saveSession, sessionFile, withLock } from "../vendor/api-anything/src/session.js";
-import { ResponseSchema, type Match, type Operation, type ResponseSpec, type Trigger } from "../vendor/api-anything/src/spec.js";
-import { exportSite, loadSite } from "../vendor/api-anything/src/store.js";
+import { ResponseSchema, parseSite, type Match, type Operation, type ResponseSpec, type Trigger } from "../vendor/api-anything/src/spec.js";
+import { exportSite, loadSite, BUNDLED_DIR, userSitesDir, saveSite } from "../vendor/api-anything/src/store.js";
+import { redact } from './policy.js';
 import type { Exchange } from "../vendor/api-anything/src/types.js";
 import { getTarget, listTargets, assertTargetUrl, assertPublicHost, targetRequestAllowed, type TargetMode } from './targets.js';
 
@@ -160,9 +162,16 @@ function credentialValues(site: EngineSite, capture?: CaptureFile): string[] {
     }
   };
   for (const exchange of capture?.exchanges ?? []) {
-    for (const [key,value] of Object.entries(exchange.request.headers)) if (SENSITIVE_KEY.test(key)) {
+    for (const [key,value] of Object.entries(exchange.request.headers ?? {})) if (SENSITIVE_KEY.test(key)) {
       requestSecrets.push(value);
       if (key.toLowerCase() === 'cookie') for (const cookie of value.split(';')) { const i=cookie.indexOf('='); if(i>=0) requestSecrets.push(cookie.slice(i+1).trim()); }
+    }
+    for (const [key,value] of Object.entries(exchange.response?.headers ?? {})) if (SENSITIVE_KEY.test(key)) {
+      requestSecrets.push(value);
+      if (key.toLowerCase() === 'set-cookie') { const part = value.split(';')[0]; const i=part.indexOf('='); if(i>=0)requestSecrets.push(part.slice(i+1).trim()); }
+    }
+    if (exchange.response?.body && exchange.response.body.length <= 256_000) {
+      try { collect(JSON.parse(exchange.response.body)); } catch { /* non-JSON responses have no named credential fields */ }
     }
     try { for(const [key,value] of new URL(exchange.request.url).searchParams) if(SENSITIVE_KEY.test(key)) requestSecrets.push(value); } catch { /* malformed URL is omitted by inventory validation */ }
     const body=exchange.request.body;
@@ -223,6 +232,64 @@ export function listLearnedOperations(site: string) {
   const selected = siteOf(site);
   const resolved = loadSite(selected);
   return (resolved?.site.operations ?? []).map((operation) => { assertOperation(selected, operation); return { ...summary(operation), source: resolved!.source }; });
+}
+
+/** This internal boundary removes live credential echoes from management metadata and results. */
+export function redactEngineMetadata(site: string, value: unknown, capture?: CaptureFile): unknown {
+  ensureConfigured();
+  const credentials=credentialValues(siteOf(site),capture);
+  const walk=(item:unknown,depth=0):unknown=>{
+    if(depth>40)return '[depth limited]';
+    if(typeof item==='string')return redactText(item,credentials);
+    if(Array.isArray(item))return item.map(v=>walk(v,depth+1));
+    if(item && typeof item==='object')return Object.fromEntries(Object.entries(item).map(([key,item])=>[redactText(key,credentials),walk(item,depth+1)]));
+    return item;
+  };
+  return walk(redact(value,credentials));
+}
+
+export interface CaptureMetadata { id: string; site: string; url: string; at: string; requestCount: number }
+/** Read a bounded set of validated captures; never return their headers, cookies, storage or bodies. */
+export function listCaptureMetadata(limit = 40): CaptureMetadata[] {
+  ensureConfigured();
+  const directory = join(home(), 'captures');
+  if (!existsSync(directory)) return [];
+  const root = realpathSync(directory);
+  if (root !== join(realpathSync(home()), 'captures')) return [];
+  const targets = listTargets();
+  let remainingBytes = 64 * 1024 * 1024;
+  const files = readdirSync(directory).filter(name => /^c[a-z0-9]{1,128}\.json$/i.test(name)).slice(0, 500).flatMap(name => {
+    try { const stat = lstatSync(join(directory, name)); return stat.isFile() && stat.size <= 16 * 1024 * 1024 ? [{ name, size: stat.size, at: stat.mtimeMs }] : []; } catch { return []; }
+  }).sort((a,b) => b.at-a.at);
+  const output: CaptureMetadata[] = [];
+  for (const file of files) {
+    if (output.length >= Math.min(100,Math.max(0,limit)) || file.size > remainingBytes) continue;
+    remainingBytes -= file.size;
+    const id=file.name.slice(0,-5);
+    try {
+      const source=loadCapture(id);
+      if (source.id !== id || !Array.isArray(source.exchanges) || !Array.isArray(source.cookies) || typeof source.at !== 'string' || !Number.isFinite(Date.parse(source.at))) continue;
+      const target=targets.find(t => {try{return t.hosts.includes(new URL(source.url).host);}catch{return false;}});
+      if(!target)continue;
+      const saved=readCaptureForInventory(target.name,id);
+      output.push({id,site:target.name,url:redactUrl(saved.url,credentialValues(target.name,saved)),at:new Date(saved.at).toISOString(),requestCount:saved.exchanges.length});
+    } catch { /* stale, corrupt and cross-site captures never enter cloud snapshots */ }
+  }
+  return output;
+}
+
+/** Delete only a learned user operation. Bundled starter operations remain available. */
+export function removeLearnedOperation(site: string, name: string): { site: string; operation: string; removed: true } {
+  ensureConfigured(); const selected=siteOf(site); operationName(name);
+  const bundled=join(BUNDLED_DIR, `${selected.toLowerCase()}.json`);
+  if(existsSync(bundled) && parseSite(JSON.parse(readFileSync(bundled,'utf8'))).operations.some(op=>op.name===name)) throw new EngineError('STARTER_REFUSED','Starter operations cannot be removed.');
+  const path=join(userSitesDir(),`${selected.toLowerCase()}.json`);
+  return withLock(path,()=>{
+    const saved=loadSite(selected);
+    if(saved?.source!=='user' || !saved.site.operations.some(op=>op.name===name)) throw new EngineError('OPERATION_NOT_FOUND','The learned operation does not exist.');
+    saveSite({...saved.site,operations:saved.site.operations.filter(op=>op.name!==name)});
+    return {site:selected,operation:name,removed:true as const};
+  });
 }
 
 export async function callLearnedOperation(site: string, name: string, args: Record<string, unknown> = {}, options: CallOptions = {}): Promise<CallResult> {

@@ -21,4 +21,10 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm pack
-      - run: node scripts/verify-artifact.mjs ./ruvnet-site-harness-0.1.0.tgz
+      - run: node scripts/verify-artifact.mjs ./ruvnet-site-harness-0.2.0.tgz
+      - run: npm ci --ignore-scripts
+        working-directory: console
+      - run: npm run check
+        working-directory: console
+      - run: npm test
+        working-directory: console

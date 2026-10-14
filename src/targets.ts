@@ -1,11 +1,11 @@
-import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, chmodSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { homedir } from 'node:os';
 import { isIP } from 'node:net';
-import { randomUUID } from 'node:crypto';
 import { parse, Kind } from 'graphql';
 import { getDomain } from 'tldts';
 import { lookup } from 'node:dns/promises';
+import { withLock, writePrivate } from '../vendor/api-anything/src/session.js';
 
 export interface Target {
   name: string; baseUrl: string; hosts: string[]; staticHosts: string[]; readPostPaths: string[];
@@ -70,7 +70,7 @@ function hostname(value: string, allowHttp: boolean, allowPrivate: boolean): str
   return url.host;
 }
 export interface RegisterTargetInput { name: string; url: string; apiHosts?: string[]; staticHosts?: string[]; readPostPaths?: string[]; allowPrivate?: boolean; allowHttp?: boolean }
-export function registerTarget(input: RegisterTargetInput): Target {
+function targetFrom(input: RegisterTargetInput, replace: boolean): Target {
   if (!validTargetName(input.name)) throw new Error('Site names must start with a letter and use letters, numbers, underscores or hyphens (64 characters maximum).');
   const existing = getTarget(input.name);
   const allowPrivate = input.allowPrivate ?? existing?.allowPrivate ?? false;
@@ -82,13 +82,39 @@ export function registerTarget(input: RegisterTargetInput): Target {
   if (previous && new URL(previous.baseUrl).origin !== url.origin) throw new Error('An existing site name cannot be rebound to a different origin; use a new site name.');
   const domain = getDomain(url.hostname);
   const aliases = domain && (url.hostname === domain || url.hostname === `www.${domain}`) && !url.port ? [domain, `www.${domain}`] : [];
-  const target: Target = { name: input.name, baseUrl: url.origin, hosts: [...new Set([...(previous?.hosts ?? []),url.host,...aliases,...(input.apiHosts ?? []).map(h => hostname(h,allowHttp,allowPrivate))])], staticHosts: [...new Set([...(previous?.staticHosts ?? []),...(input.staticHosts ?? []).map(h => hostname(h,allowHttp,allowPrivate))])], readPostPaths: [...new Set([...(previous?.readPostPaths ?? []),...paths])], builtin: previous?.builtin ?? false, allowPrivate, allowHttp };
-  const stored = storedTargets().filter(t => t.name !== target.name);
-  stored.push(target);
-  const home = targetStateHome(); mkdirSync(home,{recursive:true,mode:0o700});
-  const path = join(home,'targets.json'); const temporary = `${path}.${randomUUID()}.tmp`;
-  writeFileSync(temporary,JSON.stringify(stored,null,2)+'\n',{mode:0o600}); renameSync(temporary,path); chmodSync(path,0o600);
+  const starter = builtins.find(t => t.name === input.name);
+  const target: Target = { name: input.name, baseUrl: url.origin, hosts: [...new Set([...(replace ? starter?.hosts ?? [] : previous?.hosts ?? []),url.host,...aliases,...(input.apiHosts ?? []).map(h => hostname(h,allowHttp,allowPrivate))])], staticHosts: [...new Set([...(replace ? [] : previous?.staticHosts ?? []),...(input.staticHosts ?? []).map(h => hostname(h,allowHttp,allowPrivate))])], readPostPaths: [...new Set([...(replace ? [] : previous?.readPostPaths ?? []),...paths])], builtin: !!starter, allowPrivate, allowHttp };
   return target;
+}
+function changeTargets<T>(update: (stored: Target[]) => { stored: Target[]; result: T }): T {
+  const path = join(targetStateHome(), 'targets.json');
+  return withLock(path, () => {
+    const {stored, result} = update(storedTargets());
+    writePrivate(path, JSON.stringify(stored, null, 2) + '\n');
+    return result;
+  });
+}
+export function registerTarget(input: RegisterTargetInput): Target {
+  return changeTargets(stored => {
+    const target = targetFrom(input, false);
+    return { stored: [...stored.filter(t => t.name !== target.name), target], result: target };
+  });
+}
+/** Management replaces editable lists, while preserving the starter API hosts and website origin. */
+export function saveTarget(input: RegisterTargetInput): Target {
+  return changeTargets(stored => {
+    const target = targetFrom(input, true);
+    return { stored: [...stored.filter(t => t.name !== target.name), target], result: target };
+  });
+}
+/** Removing a registry entry deliberately leaves all private sessions, captures and recipes intact. */
+export function removeTarget(name: string): { site: string; removed: true } {
+  if (!validTargetName(name)) throw new Error('Use a valid registered site name.');
+  if (builtins.some(t => t.name === name)) throw new Error('Starter targets cannot be removed.');
+  return changeTargets(stored => {
+    if (!stored.some(t => t.name === name)) throw new Error('The registered target does not exist.');
+    return { stored: stored.filter(t => t.name !== name), result: { site: name, removed: true as const } };
+  });
 }
 export function assertTargetUrl(target: Target, value: string): URL {
   const url = parseUrl(value,target.allowHttp,target.allowPrivate);

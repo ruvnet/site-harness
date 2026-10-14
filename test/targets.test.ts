@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { configureEngine } from '../src/engine.js';
-import { registerTarget, getTarget, targetRequestAllowed, privateAddress, assertTargetUrl, assertPublicHost } from '../src/targets.js';
+import { registerTarget, getTarget, targetRequestAllowed, privateAddress, assertTargetUrl, assertPublicHost, saveTarget, removeTarget } from '../src/targets.js';
+import { writePrivate } from '../vendor/api-anything/src/session.js';
 
 test('arbitrary websites register independently of social adapters with explicit API hosts', () => {
   const home = mkdtempSync(join(tmpdir(), 'site-harness-target-'));
@@ -64,4 +65,33 @@ test('generic GraphQL POST queries are discoverable while mutation documents are
     const batch = JSON.stringify([{query:'query First { pages }'},{query:'query Second { users }'}]);
     assert.equal(targetRequestAllowed(target, { url: 'https://docs.example.com/graphql', method: 'POST', postData: batch }), true);
   } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('management replaces editable target lists and keeps starter API hosts and existing origins',()=>{
+  const home=mkdtempSync(join(tmpdir(),'site-harness-save-target-'));configureEngine({home});
+  try {
+    registerTarget({name:'catalog',url:'https://catalog.example',apiHosts:['old.catalog.example'],staticHosts:['old-assets.catalog.example'],readPostPaths:['/old/query']});
+    const saved=saveTarget({name:'catalog',url:'https://catalog.example/items',apiHosts:['api.catalog.example'],staticHosts:[],readPostPaths:['/api/query'],allowHttp:false,allowPrivate:false});
+    assert.equal(saved.hosts.includes('old.catalog.example'),false);
+    assert.ok(saved.hosts.includes('api.catalog.example'));
+    assert.deepEqual(saved.staticHosts,[]);assert.deepEqual(saved.readPostPaths,['/api/query']);
+    assert.throws(()=>saveTarget({name:'catalog',url:'https://another.example',apiHosts:[]}),/cannot be rebound/);
+    const starter=saveTarget({name:'reddit',url:'https://www.reddit.com',apiHosts:[],staticHosts:[],readPostPaths:[],allowHttp:false,allowPrivate:false});
+    for(const host of ['reddit.com','www.reddit.com','oauth.reddit.com','api.reddit.com','old.reddit.com'])assert.ok(starter.hosts.includes(host));
+    assert.equal(starter.builtin,true);
+    assert.equal(statSync(join(home,'targets.json')).mode&0o777,0o600);
+  } finally {rmSync(home,{recursive:true,force:true});}
+});
+
+test('management target removal preserves private sessions, captures and recipes and refuses starter targets',()=>{
+  const home=mkdtempSync(join(tmpdir(),'site-harness-remove-target-'));configureEngine({home});
+  try {
+    registerTarget({name:'catalog',url:'https://catalog.example'});
+    for(const directory of ['sessions','captures','sites'])writePrivate(join(home,directory,'catalog.json'),'{}');
+    assert.deepEqual(removeTarget('catalog'),{site:'catalog',removed:true});
+    assert.equal(getTarget('catalog'),undefined);
+    for(const directory of ['sessions','captures','sites'])assert.equal(existsSync(join(home,directory,'catalog.json')),true);
+    for(const starter of ['producthunt','reddit','linkedin'])assert.throws(()=>removeTarget(starter),/Starter targets/);
+    assert.throws(()=>removeTarget('../catalog'),/valid registered/);
+  } finally {rmSync(home,{recursive:true,force:true});}
 });

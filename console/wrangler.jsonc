@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "site-harness-console",
+  "main": "dist/worker.mjs",
+  "compatibility_date": "2026-07-30",
+  "workers_dev": true,
+  "preview_urls": false,
+  "build": { "command": "npm run build" },
+  "d1_databases": [{ "binding": "DB", "database_name": "site-harness-console", "database_id": "13ea1edb-d511-4203-9780-169ef72b67d4" }],
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "https://cognitum-software-factory.cloudflareaccess.com",
+    "ACCESS_AUD": "e1c63256e25fe4080ed693f4f61867d6fefc15298c95b2008b2c68ff9dfde842",
+    "OWNER_EMAIL": "REPLACE_WITH_YOUR_AUTHORIZED_OWNER_EMAIL"
+  }
+}

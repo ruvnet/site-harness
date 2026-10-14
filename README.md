@@ -17,7 +17,7 @@ required. The network policy remains an application-level check.
 ## Discover a website
 
 ```sh
-npx @ruvnet/site-harness@0.1.0 discover 'https://your-site.example/search?q=alpha' --site demo
+npx @ruvnet/site-harness@0.2.0 discover 'https://your-site.example/search?q=alpha' --site demo
 site-harness network demo cACTUAL_CAPTURE_ID
 site-harness openapi demo cACTUAL_CAPTURE_ID --output ./demo-openapi.json
 ```
@@ -72,16 +72,16 @@ State defaults to `~/.site-harness`. On this restricted workspace, set
 Use the versioned package:
 
 ```sh
-npx @ruvnet/site-harness@0.1.0 discover https://your-site.example --site demo
-npx @ruvnet/site-harness@0.1.0 mcp
+npx @ruvnet/site-harness@0.2.0 discover https://your-site.example --site demo
+npx @ruvnet/site-harness@0.2.0 mcp
 ```
 
 For local artifact testing, build a tarball and run those exact bytes:
 
 ```sh
 npm pack
-npx --yes --package ./ruvnet-site-harness-0.1.0.tgz site-harness sites
-npx --yes --package ./ruvnet-site-harness-0.1.0.tgz site-harness mcp
+npx --yes --package ./ruvnet-site-harness-0.2.0.tgz site-harness sites
+npx --yes --package ./ruvnet-site-harness-0.2.0.tgz site-harness mcp
 ```
 
 The reviewed npm tarball contains compiled runtime code and its shrinkwrap;
@@ -210,9 +210,37 @@ subprocess execution for CLI/MCP acceptance tests; otherwise those tests fail
 explicitly. See `docs/IMPLEMENTATION.md` and `docs/VERIFICATION.md` for provenance
 and the release evidence. Upstream MIT licenses are retained.
 
+## Management console
+
+Open [Site Harness Console](https://site-harness-console.cognitum-consulting-mail.workers.dev)
+on desktop or mobile. Owner email sign-in uses Cloudflare Access. The console
+includes animated network maps, endpoint and schema inspection, OpenAPI downloads,
+target allowlists, learned operation controls, job history, capture preferences,
+reduced motion, and desktop pairing/revocation.
+
+The cloud coordinates jobs; a paired desktop runs Chromium and keeps website
+cookies, raw captures and API tokens local. An offline desktop is shown as
+offline, and its jobs wait in the queue. In Settings, pair a desktop and download
+its private configuration. On macOS or Linux, restrict the file before starting:
+
+```sh
+chmod 600 ./site-harness-agent.json
+npx @ruvnet/site-harness@0.2.0 agent --config ./site-harness-agent.json
+```
+
+Keep the agent running while using the console. Manual login opens a browser on
+that desktop. Cloud settings control capture timeout, static request inclusion,
+refresh and animation; local configuration controls private-network permission.
+The deployed ruOS agent starts with the desktop session and uses separate private
+state. Credentials for starter adapters remain in its launching environment.
+
+Console source, migrations and pinned build dependencies live in `console/`.
+Run `npm ci --ignore-scripts` there, then `npm run check` and `npm test` after the
+root package is built. See [management architecture](docs/MANAGEMENT.md).
+
 Release artifact verification also installs the tarball into a temporary project
 and exercises npx discovery, OpenAPI file output, and MCP tools, calls and resources:
 
 ```sh
-node scripts/verify-artifact.mjs ./ruvnet-site-harness-0.1.0.tgz
+node scripts/verify-artifact.mjs ./ruvnet-site-harness-0.2.0.tgz
 ```

@@ -58,6 +58,10 @@ export class SiteHarness {
     this.home = engine.configureEngine({ home: options.home }).home;
     for (const action of Object.keys(actionSchemas) as ActionName[]) this.runtime.register(action, args => this.execute(action, args));
   }
+  setTimeoutMs(timeoutMs: number) {
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 5000 || timeoutMs > 120_000) throw new Error('Capture timeout must be between 5 and 120 seconds.');
+    this.options.timeoutMs = timeoutMs;
+  }
   sites() {
     const env = this.options.env ?? process.env;
     return listTargets().map(target => ({

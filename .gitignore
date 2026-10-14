@@ -6,3 +6,9 @@ dist/
 !.env.example
 .state/
 coverage/
+console/dist/
+console/src/assets.generated.ts
+console/.wrangler/
+console/.dev.vars
+*agent-private*.json
+console/artifacts/
