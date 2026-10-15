@@ -183,7 +183,7 @@ async function api(request: Request, env: Env, url: URL, email: string): Promise
     const project = await env.DB.prepare('SELECT * FROM remix_projects WHERE id = ?').bind(projectId).first<RemixRow>();
     if (!project) throw new HttpError(404, 'Remix project not found.');
     if (method === 'GET' && releaseMatch[2] === 'preview') {
-      const payload = url.searchParams.get('source') === 'public-collector' ? await publicCollectorData(project) : await releaseData(env,project,uuid(url.searchParams.get('agentId') ?? ''));
+      const payload = url.searchParams.get('source') === 'public-collector' ? await publicCollectorData(env, project) : await releaseData(env,project,uuid(url.searchParams.get('agentId') ?? ''));
       const html = renderRelease(payload,'private preview');
       return new Response(html,{headers:releaseHeaders(html)});
     }
@@ -194,7 +194,7 @@ async function api(request: Request, env: Env, url: URL, email: string): Promise
     }
     if (method === 'POST' && releaseMatch[2] === 'publish') {
       const input = z.object({agentId: z.string().uuid(), visibility: z.enum(['private','public']), dataSource: z.enum(['operations','public-collector']).default('operations'), confirmPublic: z.boolean().default(false)}).strict().parse(await readJson(request, 4096));
-      const payload = input.dataSource === 'public-collector' ? await publicCollectorData(project) : await releaseData(env, project, input.agentId);
+      const payload = input.dataSource === 'public-collector' ? await publicCollectorData(env, project) : await releaseData(env, project, input.agentId);
       if (input.visibility === 'public' && (!input.confirmPublic || payload.provenance.some(p => p.authenticated))) throw new HttpError(403, 'Public publication requires explicit approval and sources confirmed without credentials. Use private publication for authenticated or unknown sources.');
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
