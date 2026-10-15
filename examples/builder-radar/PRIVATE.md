@@ -12,7 +12,15 @@ Worker: builder-radar-private. PRIVATE_SNAPSHOTS binds only the private KV names
 
 Cloudflare Access protects /private on the private hostname. /ingest is outside the browser login route and requires an ECDSA signature over the complete body, including visibility and tenant. Signed messages must be generated within five minutes; older stored snapshots are rejected. KV is eventually consistent, so concurrent writers are not supported. Run capture and publish serially under flock. This demo is not a transactional queue.
 
-## Connect on Software Factory
+## Connect from the app
+
+Open the private workspace and choose Connect Reddit, Connect YouTube or Connect Product Hunt. Open the capture desktop using the displayed link, complete login in that desktop window, then close the window to save the session. Status distinguishes queued, opening, session saved and failed. Session saved does not establish a successful authenticated capture; an approved source recipe is still needed.
+
+The owner authenticated POST requires a same origin JSON request. A dedicated desktop bridge polls signed requests and can start only the three fixed login commands. It accepts no shell commands from the UI. Jobs are bounded, deduplicated locally, and serialized by the single desktop process. KV propagation can delay a window by up to a minute. The desktop viewer is a secret Worker binding and is returned only to the owner. Its control session expires after at most one hour; a new control session and bridge run are required afterward. Expired controls are disabled. No source passwords or session cookies pass through the queue.
+
+Twenty two security and UI structure tests pass. The signed bridge poll succeeds on production; real account login remains a manual acceptance step.
+
+## Advanced setup on Software Factory
 
 The runtime is installed at /home/ruv/builder-radar-harness. Node 22 is pinned locally. Use its dedicated browser profile rather than importing another application's sessions.
 
