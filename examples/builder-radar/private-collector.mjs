@@ -20,6 +20,7 @@ try{
   console.log(JSON.stringify({sessionSaved:true,source,note:'Session saved locally. Authentication must be checked against the requested account page.'}));
  }else if(command==='discover'){
   const url=canonical(arg);const r=await invoke('discover_site',{name:site,url});
+  if(r.truncated&&r.data?.artifact){if(!r.data.artifact.startsWith(root+'state/exports/'))throw Error('Unexpected artifact location');r.data=JSON.parse(readFileSync(r.data.artifact,'utf8'));}
   writeFileSync(root+source+'-discovery.json',JSON.stringify(r.data,null,2),{mode:0o600});
   console.log(JSON.stringify({source,capture:r.data.capture,inventorySavedLocally:true,note:'Inspect the local capture and approve a field recipe before upload.'}));
  }else if(command==='publish'){
