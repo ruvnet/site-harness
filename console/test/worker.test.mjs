@@ -11,7 +11,7 @@ const origin = 'https://console.example';
 const issuer = 'https://site-harness-test.cloudflareaccess.com';
 const audience = 'site-harness-console-test';
 const owner = 'owner@example.com';
-const env = { ACCESS_TEAM_DOMAIN: issuer, ACCESS_AUD: audience, OWNER_EMAIL: owner, CONSOLE_CODE_HASH: createHash('sha256').update('ruvnet').digest('hex') };
+const env = { ACCESS_TEAM_DOMAIN: issuer, ACCESS_AUD: audience, OWNER_EMAIL: owner, CONSOLE_CODE_HASH: createHash('sha256').update('fixture-access-code').digest('hex') };
 let mf, db, privateKey, publicJwk, ownerJwt, worker;
 
 async function token(overrides = {}) {
@@ -103,13 +103,13 @@ test('workspace code issues a secure hashed session, rotates it and revokes it o
   assert.equal((await request('/signup', { jwt: null })).status, 200);
   assert.equal((await request('/signin', { jwt: null })).status, 200);
   assert.equal((await request('/api/login', { jwt: null })).response.headers.get('Location'), '/signup');
-  const login = options => request('/auth/login', { method: 'POST', jwt: null, body: { code: 'ruvnet' }, ...options });
+  const login = options => request('/auth/login', { method: 'POST', jwt: null, body: { code: 'fixture-access-code' }, ...options });
   assert.equal((await login({ originHeader: 'https://attacker.example' })).status, 403);
   assert.equal((await login({ originHeader: null })).status, 403);
   const wrong = await login({ body: { code: 'incorrect' } });
   assert.equal(wrong.status, 401);
   assert.equal(wrong.response.headers.get('Set-Cookie'), null);
-  assert.equal((await login({ body: { code: 'ruvnet', email: 'other@example.com' } })).status, 400);
+  assert.equal((await login({ body: { code: 'fixture-access-code', email: 'other@example.com' } })).status, 400);
   const accepted = await login();
   assert.equal(accepted.status, 200, accepted.text);
   const header = accepted.response.headers.get('Set-Cookie');
@@ -133,7 +133,7 @@ test('workspace code issues a secure hashed session, rotates it and revokes it o
 });
 
 test('expired and code-rotated sessions fail; login attempts are atomically limited per address', async () => {
-  const login = options => request('/auth/login', { method: 'POST', jwt: null, ip: '192.0.2.2', body: { code: 'ruvnet' }, ...options });
+  const login = options => request('/auth/login', { method: 'POST', jwt: null, ip: '192.0.2.2', body: { code: 'fixture-access-code' }, ...options });
   const header = (await login()).response.headers.get('Set-Cookie');
   const cookie = header.split(';')[0];
   const hash = createHash('sha256').update(cookie.split('=')[1]).digest('hex');
@@ -170,6 +170,33 @@ test('settings mutations require exact origin and persist only strict bounded co
   const saved = await request('/api/settings', { method: 'PUT', body: configuration });
   assert.equal(saved.status, 200, saved.text);
   assert.deepEqual((await request('/api/state')).json.settings, configuration);
+});
+
+test('remix projects persist strict source mappings and require same-origin mutations', async () => {
+  const definition = {
+    template: 'builder-radar',
+    sources: [{ site: 'reddit', role: 'discussions', enabled: true }, { site: 'youtube', role: 'videos', enabled: true }],
+    layout: 'briefing',
+    blocks: ['source-tabs', 'search', 'feed', 'video-rail'],
+    mappings: [{ site: 'reddit', operation: 'search', titlePath: 'title', summaryPath: 'selftext', urlPath: 'url', imagePath: 'thumbnail' }],
+  };
+  const body = { name: 'Builder Radar', description: 'A real mashup', definition };
+  assert.equal((await request('/api/remixes', { method: 'POST', body, originHeader: null })).status, 403);
+  assert.equal((await request('/api/remixes', { method: 'POST', body: { ...body, unexpected: true } })).status, 400);
+  const created = await request('/api/remixes', { method: 'POST', body });
+  assert.equal(created.status, 201, created.text);
+  assert.equal(created.json.remix.name, 'Builder Radar');
+  assert.deepEqual(created.json.remix.definition, definition);
+  const id = created.json.remix.id;
+  assert.equal((await request(`/api/remixes/${id}`)).json.remix.id, id);
+  assert.equal((await request('/api/remixes')).json.remixes.length, 1);
+  assert.equal((await request('/api/state')).json.remixes[0].id, id);
+  const updated = await request(`/api/remixes/${id}`, { method: 'PUT', body: { ...body, name: 'Signal Desk', definition: { ...definition, layout: 'grid' } } });
+  assert.equal(updated.status, 200, updated.text);
+  assert.equal(updated.json.remix.name, 'Signal Desk');
+  assert.equal(updated.json.remix.definition.layout, 'grid');
+  assert.equal((await request(`/api/remixes/${id}`, { method: 'DELETE' })).status, 200);
+  assert.equal((await request(`/api/remixes/${id}`)).status, 404);
 });
 
 test('pairing secrets are returned once, stored as hashes, and omitted from management state', async () => {

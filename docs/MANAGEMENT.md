@@ -2,8 +2,9 @@
 
 The console is a responsive Cloudflare Worker application with D1 persistence.
 The branded `/signup` and `/signin` pages accept a workspace access code. The
-hosted default is `ruvnet`. The Worker checks its SHA-256 hash from the
-`CONSOLE_CODE_HASH` binding and issues an eight-hour `__Host-site_harness` cookie
+code is provisioned privately and must never be committed or documented. The
+Worker checks its SHA-256 hash from the `CONSOLE_CODE_HASH` binding and issues an
+eight-hour `__Host-site_harness` cookie
 with Secure, HttpOnly and SameSite=Strict. D1 stores only session hashes; logout
 revokes them, and changing the code hash invalidates existing sessions. Login is
 limited to eight attempts per address per fifteen-minute window. Same-origin
@@ -13,7 +14,10 @@ by an optional gateway; the hosted console uses its own code sign-in. A paired N
 Website cookies, environment tokens and raw captures remain on that desktop.
 Only redacted results, schemas and metadata are synchronized.
 
-The interface provides Overview, Network, Targets, Operations and Settings views.
+The interface provides Projects, Sources, Inspector, Capabilities, Compose,
+Preview, Deploy and Settings views. Remix projects persist source bindings,
+capability mappings and visual composition metadata in D1. Credentials, raw
+captures and private response bodies remain outside project definitions.
 Desktop uses a sidebar; mobile uses compact navigation and stacked controls.
 Animated SVGs use actual inventory and job data, support reduced motion, and
 remain readable when animation is paused. No demo statistics are presented as
@@ -24,7 +28,7 @@ live data.
 All JSON endpoints use `{ok:true,...}` or `{ok:false,error:string}`. Times are
 ISO UTC strings. IDs are UUIDs, except target/operation names and capture IDs.
 
-- `GET /api/state?agentId=<UUID>`: `{ok,user:{email},settings,agents,snapshot,jobs}`.
+- `GET /api/state?agentId=<UUID>`: `{ok,user:{email},settings,agents,snapshot,jobs,remixes}`.
   An optional agent selects its snapshot and jobs; without it the freshest
   enabled snapshot is returned. Settings:
   `{captureTimeoutMs:30000,refreshIntervalMs:4000,includeStatic:false,reducedMotion:false}`.
@@ -40,6 +44,11 @@ ISO UTC strings. IDs are UUIDs, except target/operation names and capture IDs.
 - `POST /api/jobs/:id/cancel`: cancels a queued job only; running jobs cannot be
   assumed cancellable or retried.
 - `PUT /api/settings`: strict settings above -> `{ok,settings}`.
+- `GET /api/remixes`: lists up to 100 persisted remix projects.
+- `POST /api/remixes`: creates a strictly validated project containing only source
+  identifiers, capability mappings and composition metadata.
+- `GET|PUT|DELETE /api/remixes/:id`: reads, replaces or removes one project.
+  Mutations require same-origin requests and definitions are capped at 128 KiB.
 - `POST /api/agents`: `{name}` -> `{ok,agent:{id,name},token}`. This returns the
   pairing secret once; D1 stores only its hash. The token format is `id.secret`.
 - `POST /api/agents/:id/revoke`: prevents subsequent polling and result updates.

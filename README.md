@@ -213,13 +213,13 @@ and the release evidence. Upstream MIT licenses are retained.
 ## Management console
 
 Open [Site Harness Console](https://site-harness-console.cognitum-consulting-mail.workers.dev)
-on desktop or mobile. Use the workspace access code `ruvnet` on the branded
-[sign-in page](https://site-harness-console.cognitum-consulting-mail.workers.dev/signup).
-No email code is needed. Sign-in shares the dashboard design and supports desktop
-and mobile. The console
-includes animated network maps, endpoint and schema inspection, OpenAPI downloads,
-target allowlists, learned operation controls, job history, capture preferences,
-reduced motion, and desktop pairing/revocation.
+on desktop or mobile. The workspace owner receives access credentials through a
+private channel; credentials are never published in this repository. The Remix
+Studio turns observed website behavior into persisted projects with connected
+sources, a source inspector, reusable capabilities, a visual composer, a real data
+preview, and a provenance aware Cloudflare release specification. Existing network
+maps, schema inspection, target controls, job history, preferences, and desktop
+pairing remain available.
 
 The cloud coordinates jobs; a paired desktop runs Chromium and keeps website
 cookies, raw captures and API tokens local. An offline desktop is shown as

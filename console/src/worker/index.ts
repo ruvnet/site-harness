@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { ASSETS } from '../assets.generated.js';
 import { ownerIdentity, hashSecret, sameHash, createSecret, verifyAccessIdentity, sessionSecret, sessionCookie, SESSION_MS } from './auth.js';
-import { defaultSettings, settingsSchema, newJobSchema, pairingSchema, pollSchema, jobResultSchema, safeSnapshot, safeResult, validateArgs, ValidationError, MAX_RESULT, MAX_SNAPSHOT } from './validation.js';
+import { defaultSettings, settingsSchema, newJobSchema, pairingSchema, pollSchema, jobResultSchema, remixInputSchema, safeSnapshot, safeResult, validateArgs, ValidationError, MAX_RESULT, MAX_SNAPSHOT } from './validation.js';
 import { hasCredentials, sanitizedText } from './sanitize.js';
-import type { Env, AgentRow, JobRow, D1PreparedStatement } from './types.js';
+import type { Env, AgentRow, JobRow, RemixRow, D1PreparedStatement } from './types.js';
 
 export { verifyAccessIdentity };
 export { sanitizeData, hasCredentials } from './sanitize.js';
@@ -103,6 +103,10 @@ function jobView(row: JobRow & { result_available?: number }): Record<string, un
   };
 }
 
+function remixView(row: RemixRow): Record<string, unknown> {
+  return { id: row.id, name: row.name, description: row.description, definition: JSON.parse(row.definition_json), createdAt: row.created_at, updatedAt: row.updated_at };
+}
+
 function expireJobs(env: Env, now: string): D1PreparedStatement {
   return env.DB.prepare("UPDATE jobs SET status = 'failed', finished_at = ?, lease_until = NULL, error = 'Agent lease expired; check the desktop before retrying.' WHERE status = 'running' AND lease_until <= ?").bind(now, now);
 }
@@ -125,16 +129,17 @@ async function state(env: Env, email: string, agentId?: string): Promise<Respons
   if (agentId && !await env.DB.prepare('SELECT id FROM agents WHERE id = ? AND enabled = 1').bind(agentId).first<{ id: string }>()) throw new HttpError(404, 'Enabled desktop not found.');
   const now = new Date().toISOString();
   await expireJobs(env, now).run();
-  const [configuration, agents, snapshot, jobs] = await Promise.all([
+  const [configuration, agents, snapshot, jobs, remixes] = await Promise.all([
     settings(env),
     env.DB.prepare('SELECT id, name, version, last_seen_at, enabled FROM agents ORDER BY created_at DESC LIMIT ?').bind(MAX_AGENTS).all<AgentRow>(),
     env.DB.prepare('SELECT s.payload_json FROM snapshots s JOIN agents a ON a.id = s.agent_id WHERE a.enabled = 1 AND (? IS NULL OR a.id = ?) ORDER BY s.at DESC LIMIT 1').bind(agentId ?? null, agentId ?? null).first<{ payload_json: string }>(),
     env.DB.prepare('SELECT id, agent_id, action, args_json, status, created_at, started_at, finished_at, lease_until, CASE WHEN id IN (SELECT id FROM jobs WHERE result_json IS NOT NULL AND (? IS NULL OR agent_id = ?) ORDER BY created_at DESC, id DESC LIMIT 2) THEN result_json ELSE NULL END AS result_json, result_json IS NOT NULL AS result_available, error FROM jobs WHERE (? IS NULL OR agent_id = ?) ORDER BY created_at DESC, id DESC LIMIT ?').bind(agentId ?? null, agentId ?? null, agentId ?? null, agentId ?? null, JOB_LIMIT).all<JobRow & { result_available: number }>(),
+    env.DB.prepare('SELECT * FROM remix_projects ORDER BY updated_at DESC LIMIT 100').all<RemixRow>(),
   ]);
   return json({ ok: true, user: { email }, settings: configuration,
     agents: agents.results.map(agent => ({ id: agent.id, name: agent.name, version: agent.version, lastSeenAt: agent.last_seen_at,
       status: agent.enabled && agent.last_seen_at && Date.now() - Date.parse(agent.last_seen_at) < ONLINE_MS ? 'online' : 'offline', enabled: !!agent.enabled })),
-    snapshot: snapshot ? JSON.parse(snapshot.payload_json) : null, jobs: jobs.results.map(jobView),
+    snapshot: snapshot ? JSON.parse(snapshot.payload_json) : null, jobs: jobs.results.map(jobView), remixes: remixes.results.map(remixView),
   });
 }
 
@@ -152,6 +157,42 @@ async function api(request: Request, env: Env, url: URL, email: string): Promise
     const configuration = settingsSchema.parse(await readJson(request, 4096));
     await env.DB.prepare('INSERT INTO settings (id, settings_json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET settings_json = excluded.settings_json, updated_at = excluded.updated_at').bind(JSON.stringify(configuration), new Date().toISOString()).run();
     return json({ ok: true, settings: configuration });
+  }
+  if (url.pathname === '/api/remixes') {
+    if (method === 'GET') {
+      const rows = await env.DB.prepare('SELECT * FROM remix_projects ORDER BY updated_at DESC LIMIT 100').all<RemixRow>();
+      return json({ ok: true, remixes: rows.results.map(remixView) });
+    }
+    if (method === 'POST') {
+      const input = remixInputSchema.parse(await readJson(request, 131_072));
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const row = await env.DB.prepare('INSERT INTO remix_projects (id, name, description, definition_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *')
+        .bind(id, sanitizedText(input.name, 100), sanitizedText(input.description, 500), JSON.stringify(input.definition), now, now).first<RemixRow>();
+      if (!row) throw new HttpError(500, 'The remix project could not be created.');
+      return json({ ok: true, remix: remixView(row) }, 201);
+    }
+  }
+  const remixMatch = url.pathname.match(/^\/api\/remixes\/([^/]+)$/);
+  if (remixMatch) {
+    const id = uuid(remixMatch[1]);
+    if (method === 'GET') {
+      const row = await env.DB.prepare('SELECT * FROM remix_projects WHERE id = ?').bind(id).first<RemixRow>();
+      if (!row) throw new HttpError(404, 'Remix project not found.');
+      return json({ ok: true, remix: remixView(row) });
+    }
+    if (method === 'PUT') {
+      const input = remixInputSchema.parse(await readJson(request, 131_072));
+      const row = await env.DB.prepare('UPDATE remix_projects SET name = ?, description = ?, definition_json = ?, updated_at = ? WHERE id = ? RETURNING *')
+        .bind(sanitizedText(input.name, 100), sanitizedText(input.description, 500), JSON.stringify(input.definition), new Date().toISOString(), id).first<RemixRow>();
+      if (!row) throw new HttpError(404, 'Remix project not found.');
+      return json({ ok: true, remix: remixView(row) });
+    }
+    if (method === 'DELETE') {
+      const row = await env.DB.prepare('DELETE FROM remix_projects WHERE id = ? RETURNING id').bind(id).first<{ id: string }>();
+      if (!row) throw new HttpError(404, 'Remix project not found.');
+      return json({ ok: true });
+    }
   }
   if (url.pathname === '/api/agents' && method === 'POST') {
     const input = pairingSchema.parse(await readJson(request, 4096));

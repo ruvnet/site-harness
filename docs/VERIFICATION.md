@@ -43,7 +43,7 @@ All **18 console tests passed** (17 Worker/D1 tests plus one complete browser
 flow). Production browser verification at 1440×1040 and 390×844 confirmed:
 
 - `/signup` matches the dashboard layout and fits mobile without horizontal overflow.
-- Incorrect codes are rejected; the configured `ruvnet` code opens the real dashboard.
+- Incorrect codes are rejected; the privately configured fixture code opens the dashboard.
 - Unauthenticated management returns 401; signed-in requests return 200.
 - Secure, HttpOnly, SameSite=Strict sessions survive reload and revoke on sign-out.
 - No browser runtime errors occurred, and the email-code gateway no longer intercepts requests.

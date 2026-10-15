@@ -1,5 +1,25 @@
-export type View = 'overview' | 'network' | 'targets' | 'operations' | 'settings';
+export type View = 'overview' | 'network' | 'targets' | 'operations' | 'compose' | 'preview' | 'deploy' | 'settings';
 export type Json = Record<string, unknown>;
+
+export type RemixLayout = 'feed' | 'grid' | 'briefing';
+export type RemixBlock = 'source-tabs' | 'search' | 'filters' | 'feed' | 'video-rail' | 'trending';
+export interface RemixSource { site: string; role: 'launches' | 'discussions' | 'videos' | 'content'; enabled: boolean }
+export interface RemixMapping { site: string; operation: string; titlePath: string; summaryPath: string; urlPath: string; imagePath: string }
+export interface RemixDefinition {
+  template: 'blank' | 'builder-radar';
+  sources: RemixSource[];
+  layout: RemixLayout;
+  blocks: RemixBlock[];
+  mappings: RemixMapping[];
+}
+export interface RemixProject {
+  id: string;
+  name: string;
+  description: string;
+  definition: RemixDefinition;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Settings {
   captureTimeoutMs: number;
@@ -64,6 +84,7 @@ export interface State {
   agents: Agent[];
   snapshot: { sites: Site[]; captures: Capture[]; doctor: unknown; at: string } | null;
   jobs: Job[];
+  remixes: RemixProject[];
 }
 export interface BodySchema { contentType: string; format: string; schema: Json; seen: number; status?: number; omitted?: string }
 export interface Endpoint {

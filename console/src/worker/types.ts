@@ -12,3 +12,4 @@ export interface D1Database {
 export interface Env { DB: D1Database; ACCESS_TEAM_DOMAIN: string; ACCESS_AUD: string; OWNER_EMAIL: string; CONSOLE_CODE_HASH?: string; }
 export interface AgentRow { id: string; name: string; token_hash: string; enabled: number; version: string; last_seen_at: string | null; created_at: string; }
 export interface JobRow { id: string; agent_id: string; action: string; args_json: string; status: string; created_at: string; started_at: string | null; finished_at: string | null; lease_until: string | null; result_json: string | null; error: string | null; }
+export interface RemixRow { id: string; name: string; description: string; definition_json: string; created_at: string; updated_at: string; }

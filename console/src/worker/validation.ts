@@ -47,6 +47,28 @@ export const actionSchemas = {
 export const newJobSchema = z.object({ agentId: z.string().uuid(), action: z.string().max(64), args: jsonObject }).strict();
 export const pairingSchema = z.object({ name: z.string().trim().min(1).max(100).refine(value => !/[\u0000-\u001f\u007f]/.test(value)) }).strict();
 
+const remixSourceSchema = z.object({ site: name, role: z.enum(['launches', 'discussions', 'videos', 'content']), enabled: z.boolean() }).strict();
+const remixMappingSchema = z.object({
+  site: name,
+  operation: name,
+  titlePath: z.string().max(500),
+  summaryPath: z.string().max(500),
+  urlPath: z.string().max(500),
+  imagePath: z.string().max(500),
+}).strict();
+export const remixDefinitionSchema = z.object({
+  template: z.enum(['blank', 'builder-radar']),
+  sources: z.array(remixSourceSchema).max(24),
+  layout: z.enum(['feed', 'grid', 'briefing']),
+  blocks: z.array(z.enum(['source-tabs', 'search', 'filters', 'feed', 'video-rail', 'trending'])).max(12),
+  mappings: z.array(remixMappingSchema).max(100),
+}).strict();
+export const remixInputSchema = z.object({
+  name: z.string().trim().min(1).max(100).refine(value => !/[\u0000-\u001f\u007f]/.test(value)),
+  description: z.string().trim().max(500).default(''),
+  definition: remixDefinitionSchema,
+}).strict();
+
 const operationSchema = z.object({
   site: name, name, description: z.string().max(2000), readOnly: z.literal(true),
   transport: z.string().max(100), source: z.string().max(8000).optional(), requirements: z.array(z.string().max(2000)).max(30),
