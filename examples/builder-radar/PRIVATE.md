@@ -70,3 +70,11 @@ Each publish replaces the private snapshot with the selected capture, up to 75 e
 Run `node --test private.test.mjs`. Tests cover owner JWT verification, expiry, issuer, audience, tampering, algorithm substitution, tenant isolation, signed ingestion, replay, private/public scope separation and field projection. Synthetic fixtures are never production account data. Live anonymous and forged identity requests must not return private content.
 
 Authenticated source capture and the owner browser login require a real manual session. They are not claimed verified until the owner signs in and a source specific recipe is tested. Acceptance: sign in to the private workspace, publish one permitted real account capture, confirm it is readable there, then verify an anonymous browser and the public feed cannot retrieve it.
+
+## ruOS Lite integration
+
+The private workspace now offers an owner gated interactive Lite iframe and a stable ruOS console link. The existing saved Lite profile was restored and its rendered browser verified through computer_screenshot. The iframe URL is a secret binding, disclosed only after owner JWT verification. Only the exact ruOS origin and Lite control URL form are accepted. Expiry removes the embedded URL. The console can restore saved sessions independently; the Builder Radar embedded control ticket still needs renewal.
+
+Lite and the Site Harness desktop do not share cookies or profiles. No cookie export, unrestricted CDP attachment, or backend identity token was added. The currently exposed Lite tools offer browser control, observation and profile lifecycle, but no supported Site Harness network capture attachment was established. Therefore authenticated Lite data ingestion is pending, and the UI says so. The existing desktop capture route remains available separately.
+
+Twenty four tests pass, including Lite authorization, expiry, origin checks and client script syntax. The embedded app itself still needs owner browser acceptance. Acceptance: open Lite inside the private workspace, use the ruOS console to navigate and sign in, and reopen the saved session. A separate future acceptance gate must verify a policy checked network capture from that same Lite session before claiming account feed integration.
