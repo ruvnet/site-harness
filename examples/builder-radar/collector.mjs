@@ -87,7 +87,7 @@ try{
    capture=d.capture;
    const ep=d.inventory.endpoints.find(e=>e.path===new URL(url).pathname&&e.statuses.includes(200));
    if(!ep)throw Error('Public feed unavailable');
-   const r=await harness.invoke('inspect_capture',{site,capture,requestId:ep.requestIds[0],response:{format:'html',html:{items:'item,entry',fields:{title:'title',href:'link@href',url:'link',id:'guid',published:'pubDate',text:''}}}});
+   const r=await harness.invoke('inspect_capture',{site,capture,requestId:ep.requestIds[0],response:{format:'html',html:{items:'item,entry',fields:key==='atlantic'?{title:'title',href:'link@href',id:'id',published:'published'}:{title:'title',href:'link@href',url:'link',id:'guid',published:'pubDate',text:''}}}});
    if(!r.ok||!Array.isArray(r.data?.data))throw Error('Feed extraction failed');
    const rows=r.data.data.map(p=>({...p,title:String(p.title||'').replace(/<!\[CDATA\[|\]\]>/g,''),url:p.href||p.url||String(p.text||'').match(/https:\/\/[^\s<>]+/)?.[0]||p.id})); const items=rows.filter(p=>{try{const u=new URL(p.url);return u.protocol==='https:'&&!u.username&&!u.password&&(u.hostname===host||u.hostname==='www.'+host)&&p.title}catch{return false}}).slice(0,15).map(p=>({id:key+':'+(p.id||p.url),name:p.title.slice(0,300),url:p.url,description:'Public headline from '+label+'. Read the original article at the publisher. A subscription may be required.',category:label,source:key,kind:'Site Harness capture',published:p.published||null,need:'Read original article',capture,requestId:ep.requestIds[0],fetchedAt:d.inventory.observedAt,thumbnail:null}));
    if(!items.length)throw Error('No valid public headlines extracted');
