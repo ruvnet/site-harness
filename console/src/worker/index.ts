@@ -23,7 +23,7 @@ function headers(contentType = 'application/json; charset=utf-8'): Headers {
     'Content-Type': contentType, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self' https://*.cloudflareaccess.com",
+    'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self' https://*.cloudflareaccess.com",
   });
 }
 function json(value: unknown, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: headers() }); }
@@ -185,7 +185,9 @@ async function api(request: Request, env: Env, url: URL, email: string): Promise
     if (method === 'GET' && releaseMatch[2] === 'preview') {
       const payload = url.searchParams.get('source') === 'public-collector' ? await publicCollectorData(env, project) : await releaseData(env,project,uuid(url.searchParams.get('agentId') ?? ''));
       const html = renderRelease(payload,'private preview');
-      return new Response(html,{headers:releaseHeaders(html)});
+      const headers = releaseHeaders(html);
+      headers['Content-Security-Policy'] = headers['Content-Security-Policy'].replace("frame-ancestors 'none'", "frame-ancestors 'self'");
+      return new Response(html,{headers});
     }
     if (method === 'GET' && releaseMatch[2] === 'releases') {
       const releases = await env.DB.prepare('SELECT id, name, visibility, created_at FROM remix_releases WHERE project_id = ? ORDER BY created_at DESC LIMIT 30').bind(projectId).all();

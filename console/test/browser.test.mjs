@@ -110,6 +110,12 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
     await page.locator('.sidebar nav').getByRole('link', { name: 'Preview', exact: true }).click();
     await page.getByText('LIVE REMIX PREVIEW', { exact: true }).waitFor();
     await page.getByText(/provenance labeled/).waitFor();
+    const embedded = page.frameLocator('iframe[title="Interactive remix preview"]');
+    await embedded.getByLabel('Search feed').waitFor();
+    await embedded.getByLabel('Filter source').selectOption('reddit');
+    assert.equal(await embedded.locator('article:visible').count(),1);
+    await page.getByRole('button',{name:'Mobile',exact:true}).click();
+    assert.equal(await page.locator('.preview-device-mobile').count(),1);
     await page.locator('.sidebar nav').getByRole('link', { name: 'Deploy', exact: true }).click();
     await page.getByRole('heading', { name: /Publish Builder Radar/ }).waitFor();
     await page.getByLabel('Data source',{exact:true}).selectOption('public-collector');
@@ -123,6 +129,13 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
     assert.equal(await releasePage.locator('article:visible').count(),1);
     await releasePage.getByLabel('Search feed').fill('no such record');
     assert.equal(await releasePage.locator('article:visible').count(),0);
+    await releasePage.getByRole('button',{name:'Clear filters',exact:true}).click();
+    await releasePage.getByLabel('Content type').selectOption('videos');
+    assert.equal(await releasePage.locator('article:visible').count(),1);
+    await releasePage.getByRole('button',{name:'Compact view',exact:true}).click();
+    assert.equal(await releasePage.locator('#feed.compact').count(),1);
+    await releasePage.setViewportSize({width:390,height:844});
+    assert.ok(await releasePage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
     await releasePage.close();
     await page.locator('.sidebar nav').getByRole('link', { name: 'Settings', exact: true }).click();
     await page.locator('#setting-timeout').fill('45');
