@@ -40,19 +40,21 @@ try{
 
  // Enrich a bounded number of product pages each cycle. All reads use Site Harness.
  let mediaReads=0;
+ harness.setTimeoutMs(8000);
  for(const p of out.items.filter(p=>p.source==='producthunt')){
   let cached=mediaCache[p.url];
-  if((!cached||Date.now()-cached.checked>86400000)&&mediaReads<6){
+  if((!cached||Date.now()-cached.checked>86400000)&&mediaReads<2){
    mediaReads++;
    try{
-    const d=await harness.invoke('discover_site',{name:'radarph',url:p.url});if(!d.ok)throw Error('capture');
+    const d=await harness.invoke('discover_site',{name:'radarph',url:p.url});if(!d.ok)throw Error(d.class+': '+d.reason);if(d.truncated&&d.data?.artifact&&d.data.artifact.startsWith(root+'state/exports/'))d.data=JSON.parse(readFileSync(d.data.artifact,'utf8'));
     const endpoint=d.data.inventory.endpoints.find(e=>e.path===new URL(p.url).pathname&&e.statuses.includes(200)&&e.resourceTypes.includes('document'));if(!endpoint)throw Error('document');
     const r=await harness.invoke('inspect_capture',{site:'radarph',capture:d.data.capture,requestId:endpoint.requestIds[0],response:{format:'html',html:{items:'html',fields:{image:'meta[property="og:image"]@content',video:'meta[property="og:video"]@content',embeds:'all:iframe@src'}}}});
     const m=r.data?.data?.[0]||{};cached={checked:Date.now(),thumbnail:imageUrl(m.image),youtubeId:[m.video,...(m.embeds||[])].map(ytId).find(Boolean)||null,mediaCapture:d.data.capture,mediaFetchedAt:d.data.inventory.observedAt};mediaCache[p.url]=cached;
-   }catch{mediaCache[p.url]={checked:Date.now(),...(cached||{})};}
+   }catch(e){mediaCache[p.url]={...(cached||{}),checked:Date.now(),error:String(e.message).slice(0,200)};}
   }
   if(cached){p.thumbnail=cached.thumbnail||p.thumbnail;p.youtubeId=cached.youtubeId||p.youtubeId;if(cached.thumbnail||cached.youtubeId){p.mediaCapture=cached.mediaCapture;p.mediaFetchedAt=cached.mediaFetchedAt}}
  }
+ harness.setTimeoutMs(20000);
  writeFileSync(root+'media-cache.json',JSON.stringify(mediaCache),{mode:0o600});
  // Capture a public YouTube channel listing; the channel's RSS endpoint is unavailable.
  const key='youtube',site='radaryt',url='https://www.youtube.com/@Fireship/videos',attemptedAt=new Date().toISOString();
