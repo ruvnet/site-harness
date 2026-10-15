@@ -77,7 +77,7 @@ export function releaseHeaders(html: string) {
 export async function publicCollectorData(project: RemixRow) {
   const definition = remixDefinitionSchema.parse(JSON.parse(project.definition_json));
   if (definition.template !== 'builder-radar') throw new ValidationError('The public collector is available for Builder Radar projects.');
-  const response = await fetch('https://builder-radar.cognitum-consulting-mail.workers.dev/api/products', {redirect:'error',signal:AbortSignal.timeout(10_000)});
+  const response = await fetch('https://builder-radar.cognitum-consulting-mail.workers.dev/api/products', {redirect:'manual',signal:AbortSignal.timeout(10_000)});
   if (!response.ok) throw new ValidationError('Public capture collector is unavailable. Try again later.');
   const reader=response.body?.getReader(); if (!reader) throw new ValidationError('Collector returned no data.');
   const chunks:Uint8Array[]=[];let size=0;

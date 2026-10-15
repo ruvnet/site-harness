@@ -12,7 +12,7 @@ export async function wakeAgent(env: Env, agentId: string): Promise<{ state: str
   const claimed = await env.DB.prepare('INSERT INTO agent_wakes (agent_id, attempted_at) VALUES (?, ?) ON CONFLICT(agent_id) DO UPDATE SET attempted_at = excluded.attempted_at WHERE attempted_at < ? RETURNING agent_id').bind(agentId, now, now - 60_000).first();
   if (!claimed) return { state: 'pending', message: 'A wake request was recently attempted. Waiting for a desktop heartbeat.' };
   try {
-    const response = await fetch(url, { method: 'POST', redirect: 'error', headers: { Authorization: `Bearer ${env.WAKE_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId }), signal: AbortSignal.timeout(8000) });
+    const response = await fetch(url, { method: 'POST', redirect: 'manual', headers: { Authorization: `Bearer ${env.WAKE_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ agentId }), signal: AbortSignal.timeout(8000) });
     return response.ok ? { state: 'requested', message: 'Wake accepted. Waiting for the desktop heartbeat.' } : { state: 'failed', message: 'Wake service rejected the request. Queued work is preserved; open ruOS to start the desktop.' };
   } catch { return { state: 'failed', message: 'Wake service could not be reached. Queued work is preserved; open ruOS to start the desktop.' }; }
 }
