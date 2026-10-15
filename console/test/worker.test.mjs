@@ -405,3 +405,49 @@ test('large result bodies are bounded and older results are fetched individually
   assert.equal(tooLarge.status, 400);
   assert.equal((await request('/api/jobs/' + oversizedJob.id)).json.job.status, 'running');
 });
+
+test('release publication enforces private access, freshness, escaping, rollback and unpublish', async () => {
+  const paired = await pair('Release desktop');
+  const snap = snapshot();
+  snap.sites[0].operations[0].inputSchema = {type:'object',properties:{},required:[]};
+  await poll(paired.token, snap);
+  const job = await queue(paired.agent.id, 'call_operation', {site:'fixture',operation:'search',args:{}});
+  await poll(paired.token);
+  const complete = await request(`/agent/jobs/${job.id}/result`,{method:'POST',jwt:null,originHeader:null,pairing:paired.token,body:{result:{ok:true,class:'ok',ms:1,data:{items:[{title:'<script>bad()</script>',url:'https://example.com/item',summary:'Captured result',image:'javascript:alert(1)'},{title:'unsafe',url:'javascript:alert(1)'}]}}}});
+  assert.equal(complete.status,200,complete.text);
+  const input = {name:'Release test',description:'Real fixture',definition:{template:'blank',sources:[{site:'fixture',role:'content',enabled:true}],layout:'feed',blocks:['feed'],mappings:[{site:'fixture',operation:'search',titlePath:'title',summaryPath:'summary',urlPath:'url',imagePath:'image'}]}};
+  const project = await request('/api/remixes',{method:'POST',body:input});
+  const id = project.json.remix.id;
+  const publish = body => request(`/api/remixes/${id}/publish`,{method:'POST',body:{agentId:paired.agent.id,...body}});
+  assert.equal((await publish({visibility:'public',confirmPublic:true})).status,403);
+  const privateRelease = await publish({visibility:'private'});
+  assert.equal(privateRelease.status,201,privateRelease.text);
+  assert.equal(privateRelease.json.records,1);
+  assert.equal((await request(privateRelease.json.url,{jwt:null})).status,401);
+  const page = await request(privateRelease.json.url);
+  assert.equal(page.status,200);
+  assert.doesNotMatch(page.text,/<script>bad|javascript:alert/);
+  assert.match(page.text,/&lt;script&gt;/);
+  assert.match(page.response.headers.get('Content-Security-Policy'),/nonce-/);
+  snap.sites[0].credentialConfigured = false;
+  await poll(paired.token,snap);
+  assert.equal((await publish({visibility:'public'})).status,403);
+  const publicRelease = await publish({visibility:'public',confirmPublic:true});
+  assert.equal(publicRelease.status,201,publicRelease.text);
+  assert.equal((await request(publicRelease.json.url,{jwt:null})).status,200);
+  await request(`/api/remixes/${id}/rollback`,{method:'POST',body:{releaseId:privateRelease.json.releaseId}});
+  assert.equal((await request(publicRelease.json.url,{jwt:null})).status,401);
+  assert.equal((await request(`/api/remixes/${id}/rollback`,{method:'POST',body:{releaseId:publicRelease.json.releaseId}})).status,403);
+  await db.prepare("UPDATE jobs SET finished_at = '2000-01-01T00:00:00Z' WHERE id = ?").bind(job.id).run();
+  assert.equal((await publish({visibility:'private'})).status,400);
+  await request(`/api/remixes/${id}/unpublish`,{method:'POST',body:{}});
+  assert.equal((await request(privateRelease.json.url)).status,404);
+});
+
+test('offline queues report unconfigured wake without claiming a start', async () => {
+  const paired = await pair('Offline wake fixture');
+  const reply = await request('/api/jobs',{method:'POST',body:{agentId:paired.agent.id,action:'sync',args:{}}});
+  assert.equal(reply.status,201);
+  assert.equal(reply.json.wake.state,'unconfigured');
+  assert.equal(reply.json.job.status,'queued');
+});

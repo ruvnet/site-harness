@@ -102,3 +102,11 @@ be removed or adjusted for the application code session to reach the Worker.
 
 The code is checked only by the Worker; the browser bundle has no configured
 code or hash. Desktop pairing and its separate revocable tokens are unchanged.
+
+## Hosted releases (0.4)
+
+Deploy publishes working pages at `/r/<project-id>` on the existing Cloudflare Worker, without browser cloud credentials. Visibility defaults to owner authenticated. Public publication requires explicit approval and rejects authenticated or unknown source access. Choose mapped desktop results or the Builder Radar public collector. Edit dotted field paths in Compose. Results must be less than one hour old and contain mapped titles and HTTPS URLs. Publications are immutable snapshots; refresh and publish again for a new revision. History supports rollback and unpublish. Only allowlisted content fields are rendered, source HTML is escaped, and embeds are restricted to YouTube's privacy enhanced host.
+
+Queue creation calls an optional wake service configured with `WAKE_URL`, secret `WAKE_TOKEN`, and `WAKE_AGENT_ID`. The HTTPS endpoint must authorize that one ruOS machine and accept `POST {agentId}`. It must never accept arbitrary machine IDs. Requests reject redirects, time out after eight seconds, and run at most once per minute per agent. Acceptance is not liveness: only the desktop heartbeat proves online status. Without a durable credential the response explicitly reports unconfigured wake. A ruOS plugin session is not an exportable Worker credential. The five minute desktop watchdog only provides process recovery.
+
+Sources exposes Connect account using the existing desktop login/import operation. Sign in happens on the execution desktop. Official API operations still need their listed tokens. The saved ruOS Lite browser and execution desktop may hold different sessions.

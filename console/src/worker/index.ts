@@ -1,3 +1,5 @@
+import { wakeAgent } from './wake';
+import { releaseData, renderRelease, releaseHeaders, publicCollectorData } from './releases';
 import { z } from 'zod';
 import { ASSETS } from '../assets.generated.js';
 import { ownerIdentity, hashSecret, sameHash, createSecret, verifyAccessIdentity, sessionSecret, sessionCookie, SESSION_MS } from './auth.js';
@@ -173,6 +175,50 @@ async function api(request: Request, env: Env, url: URL, email: string): Promise
       return json({ ok: true, remix: remixView(row) }, 201);
     }
   }
+  const wakeMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/wake$/);
+  if (wakeMatch && method === 'POST') return json({ ok: true, wake: await wakeAgent(env, uuid(wakeMatch[1])) });
+  const releaseMatch = url.pathname.match(/^\/api\/remixes\/([^/]+)\/(releases|publish|unpublish|rollback|preview)$/);
+  if (releaseMatch) {
+    const projectId = uuid(releaseMatch[1]);
+    const project = await env.DB.prepare('SELECT * FROM remix_projects WHERE id = ?').bind(projectId).first<RemixRow>();
+    if (!project) throw new HttpError(404, 'Remix project not found.');
+    if (method === 'GET' && releaseMatch[2] === 'preview') {
+      const payload = url.searchParams.get('source') === 'public-collector' ? await publicCollectorData(project) : await releaseData(env,project,uuid(url.searchParams.get('agentId') ?? ''));
+      const html = renderRelease(payload,'private preview');
+      return new Response(html,{headers:releaseHeaders(html)});
+    }
+    if (method === 'GET' && releaseMatch[2] === 'releases') {
+      const releases = await env.DB.prepare('SELECT id, name, visibility, created_at FROM remix_releases WHERE project_id = ? ORDER BY created_at DESC LIMIT 30').bind(projectId).all();
+      const publication = await env.DB.prepare('SELECT release_id FROM remix_publications WHERE project_id = ?').bind(projectId).first();
+      return json({ok: true, releases: releases.results, publication});
+    }
+    if (method === 'POST' && releaseMatch[2] === 'publish') {
+      const input = z.object({agentId: z.string().uuid(), visibility: z.enum(['private','public']), dataSource: z.enum(['operations','public-collector']).default('operations'), confirmPublic: z.boolean().default(false)}).strict().parse(await readJson(request, 4096));
+      const payload = input.dataSource === 'public-collector' ? await publicCollectorData(project) : await releaseData(env, project, input.agentId);
+      if (input.visibility === 'public' && (!input.confirmPublic || payload.provenance.some(p => p.authenticated))) throw new HttpError(403, 'Public publication requires explicit approval and sources confirmed without credentials. Use private publication for authenticated or unknown sources.');
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      if (new TextEncoder().encode(JSON.stringify(payload)).length > 1_000_000) throw new HttpError(413, 'Published snapshot exceeds 1 MB. Reduce sources or fields.');
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO remix_releases (id, project_id, name, payload_json, visibility, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(id, projectId, project.name, JSON.stringify(payload), input.visibility, now),
+        env.DB.prepare('INSERT INTO remix_publications (project_id, release_id) VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET release_id = excluded.release_id').bind(projectId, id),
+      ]);
+      return json({ok: true, releaseId: id, url: `/r/${projectId}`, visibility: input.visibility, records: payload.items.length}, 201);
+    }
+    if (method === 'POST' && releaseMatch[2] === 'unpublish') {
+      await env.DB.prepare('DELETE FROM remix_publications WHERE project_id = ?').bind(projectId).run();
+      return json({ok: true});
+    }
+    if (method === 'POST' && releaseMatch[2] === 'rollback') {
+      const input = z.object({releaseId:z.string().uuid(), confirmPublic:z.boolean().default(false)}).strict().parse(await readJson(request,4096));
+      const release = await env.DB.prepare('SELECT visibility FROM remix_releases WHERE id = ? AND project_id = ?').bind(input.releaseId,projectId).first<{visibility:string}>();
+      if (!release) throw new HttpError(404,'Release not found.');
+      if (release.visibility === 'public' && !input.confirmPublic) throw new HttpError(403,'Confirm public visibility before restoring this release.');
+      await env.DB.prepare('INSERT INTO remix_publications (project_id, release_id) VALUES (?, ?) ON CONFLICT(project_id) DO UPDATE SET release_id = excluded.release_id').bind(projectId,input.releaseId).run();
+      return json({ok:true,url:`/r/${projectId}`});
+    }
+    throw new HttpError(405,'Unsupported release action.');
+  }
   const remixMatch = url.pathname.match(/^\/api\/remixes\/([^/]+)$/);
   if (remixMatch) {
     const id = uuid(remixMatch[1]);
@@ -208,7 +254,7 @@ async function api(request: Request, env: Env, url: URL, email: string): Promise
     const row = await env.DB.prepare("INSERT INTO jobs (id, agent_id, action, args_json, status, created_at) SELECT ?, ?, ?, ?, 'queued', ? WHERE EXISTS (SELECT 1 FROM agents WHERE id = ? AND enabled = 1) AND (SELECT count(*) FROM jobs WHERE agent_id = ? AND status IN ('queued', 'running')) < 100 RETURNING *")
       .bind(crypto.randomUUID(), input.agentId, input.action, JSON.stringify(args), new Date().toISOString(), input.agentId, input.agentId).first<JobRow>();
     if (!row) throw new HttpError(409, 'Pair an enabled desktop or clear its queue before adding jobs.');
-    return json({ ok: true, job: jobView(row) }, 201);
+    return json({ ok: true, job: jobView(row), wake: await wakeAgent(env, input.agentId) }, 201);
   }
   const jobMatch = url.pathname.match(/^\/api\/jobs\/([^/]+)(?:\/(cancel))?$/);
   if (jobMatch) {
@@ -279,6 +325,16 @@ export default {
     try {
       const url = new URL(request.url);
       if (url.pathname === '/health' && request.method === 'GET') return json({ ok: true, service: 'site-harness-console' });
+      const published = url.pathname.match(/^\/r\/([^/]+)$/);
+      if (published && request.method === 'GET') {
+        const release = await env.DB.prepare('SELECT r.payload_json, r.visibility FROM remix_publications p JOIN remix_releases r ON r.id = p.release_id JOIN remix_projects j ON j.id = p.project_id WHERE p.project_id = ?').bind(uuid(published[1])).first<{payload_json:string;visibility:string}>();
+        if (!release) throw new HttpError(404,'This remix has not been published.');
+        if (release.visibility !== 'public') {
+          try { await ownerIdentity(request,env); } catch { throw new HttpError(401,'This remix is private. Sign in to the console in this browser first.'); }
+        }
+        const html = renderRelease(JSON.parse(release.payload_json),release.visibility);
+        return new Response(html,{headers:releaseHeaders(html)});
+      }
       if (url.pathname.startsWith('/auth/')) return await authRoutes(request, env, url);
       if (url.pathname.startsWith('/api/')) {
         let user: { email: string };

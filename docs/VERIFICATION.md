@@ -52,3 +52,9 @@ D1 migration `0002_sessions.sql` and the server-only `CONSOLE_CODE_HASH` secret
 are deployed. Worker SHA-256:
 `23f6afac82e6e9686aed3c429993b69bceb821564d2cf7c99b75f631827237c1`.
 The published npm CLI/MCP artifact is unchanged by this console update.
+
+## Release acceptance 0.4
+
+Regression coverage includes private access, public acknowledgement, authenticated source rejection, freshness, output escaping, unsafe URL rejection, rollback visibility, unpublish, and unconfigured wake reporting. Run from `console`: `npm run check && npm run build && node --test test/worker.test.mjs`.
+
+Create Builder Radar, choose public collector in Deploy, preview capture data, publish privately and verify unauthenticated HTTP 401. Publish publicly after review, test search, source filters, images and YouTube embeds. Restore the private revision and verify access closes. The stopped desktop wake test remains blocked until durable wake credentials are configured.
