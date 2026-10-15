@@ -21,6 +21,7 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
   const fetchMock = createFetchMock();
   fetchMock.disableNetConnect();
   fetchMock.get(issuer).intercept({ path: '/cdn-cgi/access/certs', method: 'GET' }).reply(200, JSON.stringify({ keys: [key] }), { headers: { 'Content-Type': 'application/json' } }).persist();
+  fetchMock.get('https://builder-radar.cognitum-consulting-mail.workers.dev').intercept({path:'/api/products',method:'GET'}).reply(200,JSON.stringify(['reddit','producthunt','youtube'].map(source => ({source,name:source+' fixture title',description:'Public capture fixture',url:'https://example.com/'+source,fetchedAt:new Date().toISOString()}))),{headers:{'Content-Type':'application/json'}}).persist();
   const mf = new Miniflare({ modules: true, scriptPath: resolve('dist/worker.mjs'), compatibilityDate: '2026-07-30', d1Databases: { DB: 'console-browser-test' }, bindings: { ACCESS_TEAM_DOMAIN: issuer, ACCESS_AUD: audience, OWNER_EMAIL: email, CONSOLE_CODE_HASH: createHash('sha256').update('fixture-access-code').digest('hex') }, fetchMock });
   const db = await mf.getD1Database('DB');
   for (const file of (await readdir('migrations')).filter(name => name.endsWith('.sql')).sort()) {
@@ -110,7 +111,19 @@ test('desktop and mobile console manage a real paired engine, captures, schemas,
     await page.getByText('LIVE REMIX PREVIEW', { exact: true }).waitFor();
     await page.getByText(/provenance labeled/).waitFor();
     await page.locator('.sidebar nav').getByRole('link', { name: 'Deploy', exact: true }).click();
-    await page.getByRole('heading', { name: /Prepare Builder Radar/ }).waitFor();
+    await page.getByRole('heading', { name: /Publish Builder Radar/ }).waitFor();
+    await page.getByLabel('Data source',{exact:true}).selectOption('public-collector');
+    await page.getByRole('button',{name:'Publish to Cloudflare',exact:true}).click();
+    const publishedLink=page.getByRole('link',{name:'Open published remix',exact:true});
+    await publishedLink.waitFor();
+    const releasePage=await desktop.newPage();
+    await releasePage.goto(origin+await publishedLink.getAttribute('href'));
+    assert.equal(await releasePage.locator('article').count(),3);
+    await releasePage.getByLabel('Filter source').selectOption('reddit');
+    assert.equal(await releasePage.locator('article:visible').count(),1);
+    await releasePage.getByLabel('Search feed').fill('no such record');
+    assert.equal(await releasePage.locator('article:visible').count(),0);
+    await releasePage.close();
     await page.locator('.sidebar nav').getByRole('link', { name: 'Settings', exact: true }).click();
     await page.locator('#setting-timeout').fill('45');
     await page.getByRole('switch', { name: /Reduce animation/ }).check();
