@@ -1,29 +1,31 @@
-# Builder Radar
+# Builder Radar: real Site Harness network demo
 
 Live: https://builder-radar.cognitum-consulting-mail.workers.dev
 
-A standalone Cloudflare Worker example inspired by Product Hunt and Reddit. Zero runtime dependencies. It does not run the Site Harness desktop agent; it uses equivalent official read APIs directly for optional live data.
+## Data path
 
-## Features
+Public Product Hunt Atom feed and Reddit r/SideProject Atom feed → @ruvnet/site-harness 0.2.0 on ruOS → discover_site network capture → inspect_capture structured extraction → ECDSA signed snapshot → Cloudflare Worker → KV → browser.
 
-20 editorial starter entries, text search, topic filters, sorting, browser-local saved IDs, three-tool comparisons, source research links, responsive layout, reduced-motion support, source status and optional live APIs.
+No sample entries and no direct upstream fetches in the Worker. Source titles, URLs and publication timestamps come from the actual capture. Descriptions are generic labels, not extracted reviews or sentiment. Each entry includes capture ID, request ID and fetch timestamp. Click Inspect pipeline to inspect source status and provenance.
 
-Starter descriptions and research links are not verified launches, reviews, demand matches or endorsements. No votes or popularity scores are fabricated. Live Reddit results are unverified search matches. There is no shared account system, voting, posting or automated matching in this version.
+## Runtime
 
-## Deploy
+collector.mjs imports the actual SiteHarness service. It runs with Node 22.18.0 and system Chrome in an isolated state directory on the Software Factory ruOS desktop. Package 0.2.0 currently reports 0.1.0 in its doctor output; the installed package version is the version shown in this demo.
 
-Deploy worker.mjs as an ES module Worker named builder-radar with compatibility date 2026-10-01. Enable its workers.dev route. The deployed source is this file without a build step.
+The ruOS recurring task runs every five minutes using flock to prevent overlap. The browser reloads the latest snapshot every minute. This is polling, not push streaming, and feeds can publish on their own cadence. The task depends on the ruOS executor; stale data is labeled after 15 minutes. Source blocks and failures retain the last snapshot with Stale or Unavailable status. Reddit source scope is r/SideProject only. No anti-bot bypass or private API extraction.
 
-## Optional secrets
+The initial end-to-end collector run on 2026-10-15 captured 25 entries from each source, both HTTP 200, and successfully published its signed snapshot. Initial capture IDs: Product Hunt cmv95yjie, Reddit cmv95ym5p. Later runs replace these IDs.
 
-Set PRODUCTHUNT_TOKEN for official GraphQL reads. Set an approved REDDIT_ACCESS_TOKEN and descriptive REDDIT_USER_AGENT for Reddit OAuth reads. Never commit credentials. Reddit tokens must be refreshed externally; no OAuth refresh flow is included. Missing credentials return explicit 503 JSON; upstream failures return 502. Status reports configuration, not successful upstream validation.
+## Deployment
 
-Before enabling tokens on a busy public deployment, add request rate limiting and short-lived shared caching to protect upstream quotas. Current deployment has no source tokens and generates no upstream API traffic. Saved tool IDs remain in the browser and do not sync across devices. Loading live launches replaces the current feed until reload.
+Deploy worker.mjs as a Cloudflare ES module, compatibility date 2026-10-01. Bind SNAPSHOTS to a dedicated KV namespace. Generate an ECDSA P-256 key on the collector machine, store its PKCS8 PEM at ingest-private.pem with mode 0600 and set the matching public JWK in worker.mjs. Never publish the private key. The public key checked into this deployment is not a credential and cannot authorize uploads.
 
-## Verification
+Install @ruvnet/site-harness@0.2.0 with lifecycle scripts disabled. Use a supported Node version and an existing Chrome installation. Run collector.mjs from its isolated directory. It keeps a private local snapshot and purges capture files older than 24 hours after successful publication. Raw captures, cookies and headers never enter the public snapshot.
 
-Node syntax and 12 route/content/security-header/input-validation/fixture checks passed on 2026-10-15. Fixtures test mapping and failure handling, not acceptance by the real source accounts. Browser visual QA and live authenticated API acceptance remain unverified.
+The Worker validates the signature, snapshot age, item count, allowed source URLs, capture IDs and request IDs before ingestion. Snapshot bodies are capped at 100 KB. Older snapshots are rejected. KV is eventually consistent, so updates can take additional time to appear globally. The browser escapes imported text and accepts only HTTPS links.
 
-## Security boundary
+## Acceptance
 
-Read-only fixed upstream origins; no arbitrary URL proxy. Eight-second source timeout. Search input capped at 200 characters. External links limited to HTTPS, escaped rendered data, restrictive CSP, no framing, no credentials returned to clients. No dependencies or package execution required. API content is untrusted data.
+GET /api/feeds must identify engine @ruvnet/site-harness, contain real items from both sources and include capture IDs, request IDs and fetch timestamps. GET /api/status exposes per-source availability. POST /api/ingest without a signature must return 401. The homepage must expose Inspect pipeline. After the next successful scheduled run, capture timestamps and IDs must advance.
+
+Local checks cover JavaScript syntax, route behavior, missing snapshots, invalid payloads and unsigned ingestion. Live collector execution verifies the capture, extraction, signing and upload path. Browser visual QA has not been performed. Search is local to captured entries; related Reddit lookup is a title match within captured posts, not a global search or verified relationship. Saved IDs remain in the browser. No shared voting, accounts or comment mirroring.
