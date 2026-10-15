@@ -426,6 +426,12 @@ test('release publication enforces private access, freshness, escaping, rollback
   assert.equal((await request(privateRelease.json.url,{jwt:null})).status,401);
   const page = await request(privateRelease.json.url);
   assert.equal(page.status,200);
+  assert.match(page.response.headers.get('Content-Security-Policy'), /frame-ancestors 'none'/);
+  const previewPath = `/api/remixes/${id}/preview?agentId=${paired.agent.id}`;
+  assert.equal((await request(previewPath,{jwt:null})).status,401);
+  const preview = await request(previewPath);
+  assert.equal(preview.status,200);
+  assert.match(preview.response.headers.get('Content-Security-Policy'), /frame-ancestors 'self'/);
   assert.doesNotMatch(page.text,/<script>bad|javascript:alert/);
   assert.match(page.text,/&lt;script&gt;/);
   assert.match(page.response.headers.get('Content-Security-Policy'),/nonce-/);

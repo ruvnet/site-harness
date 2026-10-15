@@ -10,7 +10,7 @@ import { Workflow, type WorkflowSpec } from './workflows';
 import { actionLabel, defaultSettings, readInventory, relativeTime, type Job, type Json, type State, type View } from './types';
 
 const navigation: { id: View; label: string; icon: IconName }[] = [{ id: 'overview', label: 'Projects', icon: 'overview' }, { id: 'targets', label: 'Sources', icon: 'targets' }, { id: 'network', label: 'Inspector', icon: 'network' }, { id: 'operations', label: 'Capabilities', icon: 'operations' }, { id: 'compose', label: 'Compose', icon: 'edit' }, { id: 'preview', label: 'Preview', icon: 'play' }, { id: 'deploy', label: 'Deploy', icon: 'external' }, { id: 'settings', label: 'Settings', icon: 'settings' }];
-const mobileNavigation = navigation.filter(item => ['overview', 'targets', 'compose', 'preview', 'deploy'].includes(item.id));
+const mobileNavigation = navigation.filter(item => ['overview', 'targets', 'compose', 'preview', 'deploy', 'settings'].includes(item.id));
 function readView(): View { const value = location.hash.slice(1); return navigation.some(item => item.id === value) ? value as View : 'overview'; }
 type Confirmation = { title: string; description: string; label: string; callback: () => Promise<void> };
 
