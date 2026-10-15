@@ -43,10 +43,11 @@ try{
  harness.setTimeoutMs(8000);
  for(const p of out.items.filter(p=>p.source==='producthunt')){
   let cached=mediaCache[p.url];
-  if((!cached||Date.now()-cached.checked>86400000)&&mediaReads<2){
+  if((!cached||Date.now()-cached.checked>86400000)&&mediaReads<2&&Date.now()>(mediaCache.__producthuntBlockedUntil||0)){
    mediaReads++;
    try{
     const d=await harness.invoke('discover_site',{name:'radarph',url:p.url});if(!d.ok)throw Error(d.class+': '+d.reason);if(d.truncated&&d.data?.artifact&&d.data.artifact.startsWith(root+'state/exports/'))d.data=JSON.parse(readFileSync(d.data.artifact,'utf8'));
+    if(d.data.inventory.endpoints.some(e=>e.resourceTypes.includes('document')&&e.statuses.some(s=>s===403||s===429))){mediaCache.__producthuntBlockedUntil=Date.now()+86400000;throw Error('Product Hunt page access blocked; paused 24 hours')}
     const endpoint=d.data.inventory.endpoints.find(e=>e.path===new URL(p.url).pathname&&e.statuses.includes(200)&&e.resourceTypes.includes('document'));if(!endpoint)throw Error('document');
     const r=await harness.invoke('inspect_capture',{site:'radarph',capture:d.data.capture,requestId:endpoint.requestIds[0],response:{format:'html',html:{items:'html',fields:{image:'meta[property="og:image"]@content',video:'meta[property="og:video"]@content',embeds:'all:iframe@src'}}}});
     const m=r.data?.data?.[0]||{};cached={checked:Date.now(),thumbnail:imageUrl(m.image),youtubeId:[m.video,...(m.embeds||[])].map(ytId).find(Boolean)||null,mediaCapture:d.data.capture,mediaFetchedAt:d.data.inventory.observedAt};mediaCache[p.url]=cached;
@@ -54,6 +55,7 @@ try{
   }
   if(cached){p.thumbnail=cached.thumbnail||p.thumbnail;p.youtubeId=cached.youtubeId||p.youtubeId;if(cached.thumbnail||cached.youtubeId){p.mediaCapture=cached.mediaCapture;p.mediaFetchedAt=cached.mediaFetchedAt}}
  }
+ if(mediaCache.__producthuntBlockedUntil>Date.now())out.sources.producthunt.mediaState='Page previews blocked; using cached images';
  harness.setTimeoutMs(20000);
  writeFileSync(root+'media-cache.json',JSON.stringify(mediaCache),{mode:0o600});
  // Capture a public YouTube channel listing; the channel's RSS endpoint is unavailable.
