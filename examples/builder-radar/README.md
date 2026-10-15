@@ -1,31 +1,37 @@
-# Builder Radar: real Site Harness network demo
+# Builder Radar
 
 Live: https://builder-radar.cognitum-consulting-mail.workers.dev
 
-## Data path
+A Reddit inspired discovery interface combining Product Hunt launches, Reddit r/SideProject discussions and Fireship YouTube videos. Every entry comes from a real Site Harness capture. No sample posts or invented votes.
 
-Public Product Hunt Atom feed and Reddit r/SideProject Atom feed → @ruvnet/site-harness 0.2.0 on ruOS → discover_site network capture → inspect_capture structured extraction → ECDSA signed snapshot → Cloudflare Worker → KV → browser.
+## Acquisition
 
-No sample entries and no direct upstream fetches in the Worker. Source titles, URLs and publication timestamps come from the actual capture. Descriptions are generic labels, not extracted reviews or sentiment. Each entry includes capture ID, request ID and fetch timestamp. Click Inspect pipeline to inspect source status and provenance.
+The collector imports @ruvnet/site-harness 0.2.0 and uses discover_site followed by inspect_capture. It runs on the Software Factory ruOS desktop with Node 22.18.0 and Chrome. Site Harness doctor currently reports an older 0.1.0 version string; the installed npm package is 0.2.0.
 
-## Runtime
+Product Hunt and Reddit use their public Atom feeds, 25 entries each. YouTube uses the public @Fireship/videos HTML document and a projected ytInitialData extraction, up to 12 videos. The tested channel RSS endpoints returned 404, so no RSS success is claimed. Publication dates unavailable from the selected YouTube fields remain null; capture times are not substituted as publication dates.
 
-collector.mjs imports the actual SiteHarness service. It runs with Node 22.18.0 and system Chrome in an isolated state directory on the Software Factory ruOS desktop. Package 0.2.0 currently reports 0.1.0 in its doctor output; the installed package version is the version shown in this demo.
+Product taglines and media references are selected from actual captures. Product Hunt page metadata supplies preview images and YouTube embeds when exposed, with at most six product page captures per cycle and a 24 hour local media cache. Reddit media is extracted from captured feed content. Raw private captures, cookies and headers stay on the desktop. Only selected public fields enter the signed snapshot.
 
-The ruOS recurring task runs every five minutes using flock to prevent overlap. The browser reloads the latest snapshot every minute. This is polling, not push streaming, and feeds can publish on their own cadence. The task depends on the ruOS executor; stale data is labeled after 15 minutes. Source blocks and failures retain the last snapshot with Stale or Unavailable status. Reddit source scope is r/SideProject only. No anti-bot bypass or private API extraction.
+## Experience
 
-The initial end-to-end collector run on 2026-10-15 captured 25 entries from each source, both HTTP 200, and successfully published its signed snapshot. Initial capture IDs: Product Hunt cmv95yjie, Reddit cmv95ym5p. Later runs replace these IDs.
+The default paired feed puts launches beside up to two Reddit discussions. Matching uses explicit title phrases, shared terms and declared topic dictionaries. Reasons are visible; topic matches are inferences, not product reviews, endorsements or evidence of demand. Unmatched products remain visibly unmatched. The media shelf shows independent Fireship videos, not purported product reviews. Source filters, newest sorting, compact mode, browser-local saves and comparisons remain available.
 
-## Deployment
+Images load lazily. YouTube players use youtube-nocookie.com and are created only when clicked. Captured direct Reddit MP4 links can use native controls when present. Other native or restricted video formats remain accessible through original source links. An original-source link remains below every player. Embedding and thumbnail delivery remain controlled by their upstream hosts. No assertion is made that every source post includes media or that every video permits embedding.
 
-Deploy worker.mjs as a Cloudflare ES module, compatibility date 2026-10-01. Bind SNAPSHOTS to a dedicated KV namespace. Generate an ECDSA P-256 key on the collector machine, store its PKCS8 PEM at ingest-private.pem with mode 0600 and set the matching public JWK in worker.mjs. Never publish the private key. The public key checked into this deployment is not a credential and cannot authorize uploads.
+## Refresh and persistence
 
-Install @ruvnet/site-harness@0.2.0 with lifecycle scripts disabled. Use a supported Node version and an existing Chrome installation. Run collector.mjs from its isolated directory. It keeps a private local snapshot and purges capture files older than 24 hours after successful publication. Raw captures, cookies and headers never enter the public snapshot.
+A ruOS task runs every five minutes under flock. The browser reloads snapshots every minute. Source failures retain prior items with Stale status; captures older than 15 minutes are marked stale. This depends on the desktop executor and source availability, not a push stream. KV propagation can introduce additional latency.
 
-The Worker validates the signature, snapshot age, item count, allowed source URLs, capture IDs and request IDs before ingestion. Snapshot bodies are capped at 100 KB. Older snapshots are rejected. KV is eventually consistent, so updates can take additional time to appear globally. The browser escapes imported text and accepts only HTTPS links.
+The collector signs snapshots with a local P-256 private key. The Cloudflare Worker verifies against the configured public JWK and stores snapshots in the SNAPSHOTS KV binding. The public JWK in worker.mjs is not secret. Private keys must never be committed.
 
-## Acceptance
+## Run and deploy
 
-GET /api/feeds must identify engine @ruvnet/site-harness, contain real items from both sources and include capture IDs, request IDs and fetch timestamps. GET /api/status exposes per-source availability. POST /api/ingest without a signature must return 401. The homepage must expose Inspect pipeline. After the next successful scheduled run, capture timestamps and IDs must advance.
+Install the pinned package.json dependencies with npm install --ignore-scripts on Node 22.13 or newer. Supply an existing Chrome installation. Generate a P-256 PKCS8 key at ingest-private.pem with mode 0600 and configure the corresponding public JWK in the Worker. Deploy worker.mjs as an ES module with compatibility date 2026-10-01 and SNAPSHOTS bound to a dedicated KV namespace. Adapt the collector's fixed ingest URL for a separate deployment. Run npm run collect.
 
-Local checks cover JavaScript syntax, route behavior, missing snapshots, invalid payloads and unsigned ingestion. Live collector execution verifies the capture, extraction, signing and upload path. Browser visual QA has not been performed. Search is local to captured entries; related Reddit lookup is a title match within captured posts, not a global search or verified relationship. Saved IDs remain in the browser. No shared voting, accounts or comment mirroring.
+## Security and verification
+
+The Worker caps ingress at 100 KB, verifies signatures, rejects old snapshots and validates source URLs, media hosts and video IDs. CSP permits images only from enumerated media hosts and frames only from youtube-nocookie.com. Imported text is escaped. No arbitrary URL fetch endpoint is exposed.
+
+Local checks cover syntax, routes, missing data, unsigned ingestion, unrelated-match rejection, topic labels, valid media and malicious media rejection. Real ruOS executions verified capture, extraction, signing and upload of both original sources. Individual YouTube listing and Product Hunt metadata captures were verified. Player rendering and playback require browser acceptance; upstream embedding restrictions can still apply.
+
+Acceptance: /api/feeds must name @ruvnet/site-harness, expose source capture IDs and media provenance, and show available source counts. Click a video to create a player, close it to stop playback, and open its original source if embedding is blocked. Verify a later scheduled capture advances source timestamps.
