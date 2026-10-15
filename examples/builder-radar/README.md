@@ -10,7 +10,7 @@ The collector imports @ruvnet/site-harness 0.2.0 and uses discover_site followed
 
 Product Hunt and Reddit use their public Atom feeds, 25 entries each. YouTube uses the public @Fireship/videos HTML document and a projected ytInitialData extraction, up to 12 videos. The tested channel RSS endpoints returned 404, so no RSS success is claimed. Publication dates unavailable from the selected YouTube fields remain null; capture times are not substituted as publication dates.
 
-Product taglines and media references are selected from actual captures. Product Hunt page metadata supplies preview images and YouTube embeds when exposed, with at most six product page captures per cycle and a 24 hour local media cache. Reddit media is extracted from captured feed content. Raw private captures, cookies and headers stay on the desktop. Only selected public fields enter the signed snapshot.
+Product taglines and media references are selected from actual captures. Product Hunt page metadata supplies preview images and YouTube embeds when exposed, with at most two product page captures per cycle, an eight second capture limit and a 24 hour local media cache. HTTP 403 or 429 pauses product page enrichment for 24 hours while retaining previously captured previews. Product Hunt currently blocks fresh page previews; its public feed remains available. Reddit media is extracted from captured feed content. Raw private captures, cookies and headers stay on the desktop. Only selected public fields enter the signed snapshot.
 
 ## Experience
 
@@ -32,6 +32,6 @@ Install the pinned package.json dependencies with npm install --ignore-scripts o
 
 The Worker caps ingress at 100 KB, verifies signatures, rejects old snapshots and validates source URLs, media hosts and video IDs. CSP permits images only from enumerated media hosts and frames only from youtube-nocookie.com. Imported text is escaped. No arbitrary URL fetch endpoint is exposed.
 
-Local checks cover syntax, routes, missing data, unsigned ingestion, unrelated-match rejection, topic labels, valid media and malicious media rejection. Real ruOS executions verified capture, extraction, signing and upload of both original sources. Individual YouTube listing and Product Hunt metadata captures were verified. Player rendering and playback require browser acceptance; upstream embedding restrictions can still apply.
+Local checks cover syntax, routes, missing data, unsigned ingestion, unrelated-match rejection, topic labels, valid media and malicious media rejection. Real ruOS executions verified capture, extraction, signing and upload of all three sources in a 62 entry snapshot: 25 Product Hunt launches, 25 Reddit posts and 12 YouTube videos. Captured media included one Product Hunt image, eight Reddit images and twelve YouTube thumbnails and video IDs. Player rendering and playback require browser acceptance; upstream embedding restrictions can still apply.
 
 Acceptance: /api/feeds must name @ruvnet/site-harness, expose source capture IDs and media provenance, and show available source counts. Click a video to create a player, close it to stop playback, and open its original source if embedding is blocked. Verify a later scheduled capture advances source timestamps.
