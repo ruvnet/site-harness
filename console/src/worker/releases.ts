@@ -87,9 +87,9 @@ export async function publicCollectorData(env: Env, project: RemixRow) {
   const rows:unknown=JSON.parse(new TextDecoder().decode(bytes));
   if(!Array.isArray(rows))throw new ValidationError('Collector response schema changed.');
   const items:ReturnType<typeof normalize>=[];const provenance=[];
-  for(const source of ['producthunt','reddit','youtube']) {
+  for(const source of ['producthunt','reddit','youtube','nytimes','economist','guardian','atlantic','newyorker']) {
     const selected=rows.filter((r):r is Record<string,unknown>=>obj(r)&&r.source===source);
-    if(!selected.length)throw new ValidationError(`Collector is missing ${source}.`);
+    if(!selected.length){if(['producthunt','reddit','youtube'].includes(source))throw new ValidationError(`Collector is missing ${source}.`);continue;}
     if(selected.some(r=>typeof r.fetchedAt!=='string'||!Number.isFinite(Date.parse(r.fetchedAt))||Date.now()-Date.parse(r.fetchedAt)>3_600_000))throw new ValidationError(`${source} captures are stale. Wait for a successful collector refresh.`);
     for(const row of selected) items.push(...normalize([row],{titlePath:'name',summaryPath:'description',urlPath:'url',imagePath:'thumbnail'},source,String(row.fetchedAt)));
     provenance.push({site:source,operation:'public-collector',jobId:'',at:String(selected[0].fetchedAt),count:selected.length,authenticated:false});

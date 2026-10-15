@@ -70,6 +70,31 @@ try{
   out.items.push(...videos);out.sources.youtube={state:'Available',url,attemptedAt,fetchedAt:d.data.inventory.observedAt,capture:d.data.capture,requestId:ep.requestIds[0],httpStatus:200,count:videos.length,method:'discover_site → inspect_capture'};
  }catch(e){const items=previous.items.filter(p=>p.source==='youtube');out.items.push(...items);out.sources.youtube={...previous.sources.youtube,state:items.length?'Stale':'Unavailable',url,attemptedAt,count:items.length,error:String(e.message).slice(0,200)}}
 
+
+ // Publisher headlines only. No article bodies or subscriber sessions.
+ for(const [key,label,url,host] of [
+ ['nytimes','The New York Times','https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml','nytimes.com'],
+ ['economist','The Economist','https://www.economist.com/latest/rss.xml','economist.com'],
+ ['guardian','The Guardian','https://www.theguardian.com/world/rss','theguardian.com'],
+ ['atlantic','The Atlantic','https://www.theatlantic.com/feed/all/','theatlantic.com'],
+ ['newyorker','The New Yorker','https://www.newyorker.com/feed/everything','newyorker.com']]) {
+  const site='radar'+key,attemptedAt=new Date().toISOString();let capture;
+  try {
+   const result=await harness.invoke('discover_site',{url,name:site});
+   if(!result.ok)throw Error(result.reason||'Capture failed');
+   let d=result.data;
+   if(result.truncated&&d?.artifact?.startsWith(root+'state/exports/'))d=JSON.parse(readFileSync(d.artifact,'utf8'));
+   capture=d.capture;
+   const ep=d.inventory.endpoints.find(e=>e.path===new URL(url).pathname&&e.statuses.includes(200));
+   if(!ep)throw Error('Public feed unavailable');
+   const r=await harness.invoke('inspect_capture',{site,capture,requestId:ep.requestIds[0],response:{format:'html',html:{items:'item',fields:{title:'title',url:'link',id:'guid',published:'pubDate'}}}});
+   if(!r.ok||!Array.isArray(r.data?.data))throw Error('Feed extraction failed');
+   const items=r.data.data.filter(p=>{try{const u=new URL(p.url);return u.protocol==='https:'&&!u.username&&!u.password&&(u.hostname===host||u.hostname==='www.'+host)&&p.title}catch{return false}}).slice(0,15).map(p=>({id:key+':'+(p.id||p.url),name:p.title.slice(0,300),url:p.url,description:'Public headline from '+label+'. Read the original article at the publisher. A subscription may be required.',category:label,source:key,kind:'Site Harness capture',published:p.published||null,need:'Read original article',capture,requestId:ep.requestIds[0],fetchedAt:d.inventory.observedAt,thumbnail:null}));
+   if(!items.length)throw Error('No valid public headlines extracted');
+   out.items.push(...items);out.sources[key]={state:'Available',url,attemptedAt,fetchedAt:d.inventory.observedAt,capture,requestId:ep.requestIds[0],httpStatus:200,count:items.length,method:'discover_site → inspect_capture'};
+  }catch(e){const items=previous.items.filter(p=>p.source===key);out.items.push(...items);out.sources[key]={...previous.sources[key],state:items.length?'Stale':'Unavailable',url,attemptedAt,count:items.length,error:String(e.message).slice(0,200)}}
+ }
+
 }finally{await harness.close()}
 writeFileSync(root+'snapshot.json',JSON.stringify(out,null,2),{mode:0o600});
 const body=JSON.stringify(out),signature=sign('sha256',Buffer.from(body),{key:readFileSync(root+'ingest-private.pem'),dsaEncoding:'ieee-p1363'}).toString('base64');
