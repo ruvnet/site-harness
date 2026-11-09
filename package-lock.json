@@ -67,6 +67,21 @@
         }
       }
     },
+    "node_modules/@metaharness/kernel/node_modules/@metaharness/kernel-darwin-arm64": {
+      "optional": true
+    },
+    "node_modules/@metaharness/kernel/node_modules/@metaharness/kernel-darwin-x64": {
+      "optional": true
+    },
+    "node_modules/@metaharness/kernel/node_modules/@metaharness/kernel-linux-arm64-gnu": {
+      "optional": true
+    },
+    "node_modules/@metaharness/kernel/node_modules/@metaharness/kernel-linux-x64-gnu": {
+      "optional": true
+    },
+    "node_modules/@metaharness/kernel/node_modules/@metaharness/kernel-win32-x64-msvc": {
+      "optional": true
+    },
     "node_modules/@modelcontextprotocol/sdk": {
       "version": "1.32.2",
       "resolved": "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.32.2.tgz",
