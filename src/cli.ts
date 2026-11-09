@@ -96,7 +96,7 @@ function targetFlags(flags: Record<string, string>) {
 export async function main(argv = process.argv.slice(2)) {
   const [command, site, op, ...rest] = argv;
   if (!command || command === '--help' || command === '-h' || command === 'help') { process.stdout.write(help); return; }
-  if (command === '--version' || command === 'version') { process.stdout.write('0.2.0\n'); return; }
+  if (command === '--version' || command === 'version') { process.stdout.write('0.2.1\n'); return; }
   if (command === 'console') {
     if (argv.length !== 1) throw new Error('console accepts no arguments.');
     process.stdout.write('https://site-harness-console.cognitum-consulting-mail.workers.dev\n');
