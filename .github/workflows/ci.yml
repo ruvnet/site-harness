@@ -24,6 +24,9 @@ jobs:
       - run: node scripts/verify-artifact.mjs ./ruvnet-site-harness-0.2.1.tgz
       - run: npm ci --ignore-scripts
         working-directory: console
+      # src/worker imports the generated assets module (gitignored), so build first.
+      - run: npm run build
+        working-directory: console
       - run: npm run check
         working-directory: console
       - run: npm test
