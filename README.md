@@ -14,10 +14,24 @@ tool capability and site resource. `doctor` reports the actual kernel backend.
 This build uses the portable JS backend; native and WASM backends are not
 required. The network policy remains an application-level check.
 
+## Quick check
+
+**Supported environments:** Node.js 22.13+ on Linux, macOS or Windows. Discovery and `login` need a local Chrome, Chromium, Brave or Edge. `sites`, `--version` and the MCP server start without a browser.
+
+```sh
+npx @ruvnet/site-harness@0.2.1 sites
+```
+
+Output from a clean install (0.2.1, Node 22), trimmed to the first adapter:
+
+```json
+{"ok":true,"class":"ok","data":[{"site":"producthunt","baseUrl":"https://www.producthunt.com","hosts":["producthunt.com","www.producthunt.com","api.producthunt.com"],"readOnly":true,"operations":4,"access":"PRODUCTHUNT_TOKEN (official GraphQL)","credentialConfigured":false, ...}, ...]}
+```
+
 ## Discover a website
 
 ```sh
-npx @ruvnet/site-harness@0.2.0 discover 'https://your-site.example/search?q=alpha' --site demo
+npx @ruvnet/site-harness@0.2.1 discover 'https://your-site.example/search?q=alpha' --site demo
 site-harness network demo cACTUAL_CAPTURE_ID
 site-harness openapi demo cACTUAL_CAPTURE_ID --output ./demo-openapi.json
 ```
@@ -72,16 +86,16 @@ State defaults to `~/.site-harness`. On this restricted workspace, set
 Use the versioned package:
 
 ```sh
-npx @ruvnet/site-harness@0.2.0 discover https://your-site.example --site demo
-npx @ruvnet/site-harness@0.2.0 mcp
+npx @ruvnet/site-harness@0.2.1 discover https://your-site.example --site demo
+npx @ruvnet/site-harness@0.2.1 mcp
 ```
 
 For local artifact testing, build a tarball and run those exact bytes:
 
 ```sh
 npm pack
-npx --yes --package ./ruvnet-site-harness-0.2.0.tgz site-harness sites
-npx --yes --package ./ruvnet-site-harness-0.2.0.tgz site-harness mcp
+npx --yes --package ./ruvnet-site-harness-0.2.1.tgz site-harness sites
+npx --yes --package ./ruvnet-site-harness-0.2.1.tgz site-harness mcp
 ```
 
 The reviewed npm tarball contains compiled runtime code and its shrinkwrap;
@@ -228,7 +242,7 @@ its private configuration. On macOS or Linux, restrict the file before starting:
 
 ```sh
 chmod 600 ./site-harness-agent.json
-npx @ruvnet/site-harness@0.2.0 agent --config ./site-harness-agent.json
+npx @ruvnet/site-harness@0.2.1 agent --config ./site-harness-agent.json
 ```
 
 Keep the agent running while using the console. Manual login opens a browser on
@@ -245,5 +259,5 @@ Release artifact verification also installs the tarball into a temporary project
 and exercises npx discovery, OpenAPI file output, and MCP tools, calls and resources:
 
 ```sh
-node scripts/verify-artifact.mjs ./ruvnet-site-harness-0.2.0.tgz
+node scripts/verify-artifact.mjs ./ruvnet-site-harness-0.2.1.tgz
 ```
