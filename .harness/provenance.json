@@ -20,5 +20,5 @@
     "fieldMemory": false
   },
   "generatedManifest": ".harness/generated/.harness/manifest.json",
-  "adaptation": "Generated baseline retained intact; application CLI, read tools and runtime policy implemented in src. Generated host configs are references, not installed in host accounts."
+  "adaptation": "Generated baseline retained intact except that the unused @metaharness/host-claude-code dependency (open ^0.1.1 range, never imported) is removed from .harness/generated/package.json and its manifest hashes are recomputed (scripts/regenerate-harness.mjs repeats this step); application CLI, read tools and runtime policy implemented in src. Generated host configs are references, not installed in host accounts."
 }
