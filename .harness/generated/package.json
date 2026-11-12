@@ -25,8 +25,7 @@
   },
   "dependencies": {
     "@metaharness/kernel": "^0.1.0",
-    "@metaharness/host-codex": "^0.1.0",
-    "@metaharness/host-claude-code": "^0.1.1"
+    "@metaharness/host-codex": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
